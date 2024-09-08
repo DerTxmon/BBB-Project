@@ -71,8 +71,10 @@ public class Inventory_Handler : MonoBehaviour
     //else
     private bool iszooming = false;
     [SerializeField] private SpriteRenderer Sniperlaser;
-    [SerializeField] private Transform Sniperlaserstart; //Ist einfach wo alle Waffen in der Hirachy sind
     public LayerMask layerMask;
+    Player_Health playerhealth;
+    public GameObject Healthframe;
+    public GameObject Mate;
 
     void Awake(){
         Small_Ammo_Reserve = GameObject.Find("Small Ammo Reserve").GetComponent<TextMeshProUGUI>();
@@ -81,6 +83,7 @@ public class Inventory_Handler : MonoBehaviour
         Shotgun_Ammo_Reserve = GameObject.Find("Shotgun Ammo Reserve").GetComponent<TextMeshProUGUI>();
         Ammo_Reserve = GameObject.Find("Ammo_Reserve").GetComponent<Text>();
         Ammo_Mag =GameObject.Find("Ammo_Mag").GetComponent<Text>();
+        playerhealth = Player.GetComponent<Player_Health>();
     }
     void Start()
     {
@@ -95,17 +98,14 @@ public class Inventory_Handler : MonoBehaviour
     void Update(){
         //Laser folgt spieler (Gehört eigentlich in Shoot.cs)
         if(Sniper_Selected == true){
-            float x = Sniperlaserstart.position.x;
-            float y = Sniperlaserstart.position.y;
-            Sniperlaser.enabled = true;
             //Schieß einen Raycast
             RaycastHit2D hitinfo = Physics2D.Raycast(transform.position, transform.up, 150f, layerMask); //Laser Calculation
             if(hitinfo){ //Wenn der Laser was trifft
                 //schalte den Punkt an und setze ihn an collisions position
                 Sniperlaser.enabled = true;
-                Sniperlaser.transform.position = new Vector3(hitinfo.point.x, hitinfo.point.y, -26f);
+                Sniperlaser.gameObject.transform.position = new Vector2(hitinfo.point.x, hitinfo.point.y);
             }
-        }
+        }else Sniperlaser.enabled = false;
         
         //Aktualisierung des Heal-Counters im Inv.
         Healtxt.text = Player_Heal.ToString(); //WTF hab ich hier geschrieben
@@ -181,6 +181,7 @@ public class Inventory_Handler : MonoBehaviour
     public IEnumerator CameraZoomOut(){
         //Camera passt sich zur Waffe an
             //if(!iszooming){ //Könnte bugs fixen oder auch dazu führen. Muss noch getestet werden. -> Funktioniert nicht
+            if(Player.GetComponent<UI_Handler>().StartZoomDone == true){
                 iszooming = true;
                 if(Sniper_Selected){
                     //Mach die Waffe in der Hand animation an
@@ -200,8 +201,8 @@ public class Inventory_Handler : MonoBehaviour
                     //Mach die Waffe in der Hand animation an
                     Player.GetComponent<Animator>().SetBool("Weaponactive", true);
                     ShootbuttonSpriteObject.sprite = ShootbuttonSprite;
-                    for(i = MainCamera.GetComponent<Camera>().orthographicSize; i != 14f; ){
-                        if(i > 12f){
+                    for(i = MainCamera.GetComponent<Camera>().orthographicSize; i != 15f; ){
+                        if(i > 15f){
                             i--;
                         }else{
                             i++;
@@ -214,8 +215,8 @@ public class Inventory_Handler : MonoBehaviour
                     //Mach die Waffe in der Hand animation an
                     Player.GetComponent<Animator>().SetBool("Weaponactive", true);
                     ShootbuttonSpriteObject.sprite = ShootbuttonSprite;
-                    for(i = MainCamera.GetComponent<Camera>().orthographicSize;i != 14f; ){
-                        if(i > 12f){
+                    for(i = MainCamera.GetComponent<Camera>().orthographicSize;i != 15f; ){
+                        if(i > 15f){
                             i--;
                         }else{
                             i++;
@@ -257,7 +258,7 @@ public class Inventory_Handler : MonoBehaviour
                     Player.GetComponent<Animator>().SetBool("Weaponactive", true);
                     ShootbuttonSpriteObject.sprite = ShootbuttonSprite;
                     for(i = MainCamera.GetComponent<Camera>().orthographicSize;i != 11f; ){
-                        if(i > 10f){
+                        if(i > 11f){
                             i--;
                         }else{
                             i++;
@@ -281,6 +282,7 @@ public class Inventory_Handler : MonoBehaviour
                         iszooming = false;
                     }
                 }
+            }
             //}
     }
     public IEnumerator CarZoomOut(){
@@ -539,7 +541,6 @@ public class Inventory_Handler : MonoBehaviour
         }
     }
     public void Slot1_function(){
-        Debug.Log("Slot 1");
         if(Slot1_Item == "Glock_18"){
             //Aktive Waffe
             Weapons.transform.Find("Glock_18_Top_Sprite").gameObject.SetActive(true);
@@ -585,7 +586,7 @@ public class Inventory_Handler : MonoBehaviour
             Mp7_Selected = false;
         }else if(Slot1_Item == "Sniper"){
             //Schalte Laser ein
-            //Hier weiter... Gerade Intensiv
+            //Hier weiter... Gerade Intensiv 
             //Aktive Waffe
             Weapons.transform.Find("Sniper_Top_Sprite").gameObject.SetActive(true);
             Sniper_Selected = true;
@@ -658,7 +659,6 @@ public class Inventory_Handler : MonoBehaviour
         gameObject.GetComponent<Weapon_Visibility>().Checkvisibility();
     }
     public void Slot2_function(){
-        Debug.Log("Slot 2");
         if(Slot2_Item == "Glock_18"){
             //Aktive Waffe
             Weapons.transform.Find("Glock_18_Top_Sprite").gameObject.SetActive(true);
@@ -777,7 +777,6 @@ public class Inventory_Handler : MonoBehaviour
         gameObject.GetComponent<Weapon_Visibility>().Checkvisibility();
     }
     public void Slot3_function(){
-        Debug.Log("Slot3");
         if(Slot3_Item == "Glock_18"){
             //Aktive Waffe
             Weapons.transform.Find("Glock_18_Top_Sprite").gameObject.SetActive(true);
@@ -897,14 +896,32 @@ public class Inventory_Handler : MonoBehaviour
 
     public void Slot4_function(){
         //Heal Funktion
-        Player_Health playerhealth = Player.GetComponent<Player_Health>(); //Einmal in den Cache laden
         if(Player_Heal > 0 && playerhealth.health < 200){
             Player_Heal2 -= 1;
-            playerhealth.health += 20;
-            if(playerhealth.health > 200) playerhealth.health = 200; //Prevent overheal
+            StartCoroutine(HealCountUp());
+            StartCoroutine(HealBarAnimation());
+        }
+    }
+    private IEnumerator HealBarAnimation(){
+        for(int i = 0; i != 100; i++){
+            Healthbar.gameObject.transform.localScale = new Vector2(Healthbar.gameObject.transform.localScale.x + .00014f, Healthbar.gameObject.transform.localScale.y + .00014f);
+            Healthframe.gameObject.transform.localScale = new Vector2(Healthframe.gameObject.transform.localScale.x + .00014f, Healthframe.gameObject.transform.localScale.y + .00014f);
+            yield return new WaitForSecondsRealtime(.0025f);
+        }
+        for(int i = 0; i != 100; i++){
+            Healthbar.gameObject.transform.localScale = new Vector2(Healthbar.gameObject.transform.localScale.x - .00014f, Healthbar.gameObject.transform.localScale.y - .00014f);
+            Healthframe.gameObject.transform.localScale = new Vector2(Healthframe.gameObject.transform.localScale.x - .00014f, Healthframe.gameObject.transform.localScale.y - .00014f);
+            yield return new WaitForSecondsRealtime(.0025f);
+        }
+    }
+    private IEnumerator HealCountUp(){
+        for(int i = 0; i != 20; i++){
+            playerhealth.health += 1;
+            if(playerhealth.health > 200) playerhealth.health = 200;
             //Refresh UI
             Healthbar.fillAmount = playerhealth.health / 200;
             HealthbarText.text = playerhealth.health + "%";
+            yield return new WaitForSecondsRealtime(.07f);
         }
     }
 }

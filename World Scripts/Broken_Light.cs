@@ -11,6 +11,10 @@ public class Broken_Light : MonoBehaviour
         StartCoroutine(BrokenLight());    
     }
     private IEnumerator BrokenLight() {
+        if(Light == null){
+            Debug.LogError("Light is null on" + gameObject.name);
+            yield break;
+        }
         while(true){
             yield return new WaitForSeconds(Random.Range(.1f, .8f));
             Light.enabled = true;

@@ -55,11 +55,11 @@ public class Movement : MonoBehaviour
     [SerializeField] private FixedJoystick joysticklenken;
     private Rigidbody2D CarRB;
     public GameObject CarCamPoint;
-    public float beschleunigung;
-    private float lastY;
-    float Yvel;
-    int tempzähler;
-    public bool Vorwährts;
+    public Audio_Manager audio_manager;
+    public bool AimAssistActive;
+    public bool isAiming; // To track if aim assist is active
+    private Transform enemyTransform;
+    public float assistStrength; // Stärke der Korrektur (kleiner Wert = weniger Korrektur, größerer Wert = mehr Korrektur)
 
     void Awake(){
         Camfollowthis = Player;
@@ -73,6 +73,7 @@ public class Movement : MonoBehaviour
         }else shootwhilerotate = false;
         //Setze die Target Transform sofort auf den Spieler
         TargetTransform = Player.transform;
+        Screen.sleepTimeout = SleepTimeout.NeverSleep;
     }
 
     public void LoadPlayerSkin(){
@@ -96,9 +97,9 @@ public class Movement : MonoBehaviour
     void Start()
     {
         //Performance Settings from Menu
-        if(Menu_Handler.performancemode == false){
+        if(Menu_Handler.loadeddata.performancemode == false){
             //-Low Performance settings-
-            QualitySettings.vSyncCount = 0;
+            QualitySettings.vSyncCount = 30;
             Application.targetFrameRate = 30;
             //Disable Post Processing
             PostProcessingVolume.SetActive(false);
@@ -109,15 +110,12 @@ public class Movement : MonoBehaviour
 
             PostProcessingVolume.SetActive(true);
         }
-
-        //wenn Dropoff scene geladen wird:
-        //if(Dropoff_Handler.DropoffX != 0 || Dropoff_Handler.DropoffY != 0) Player.transform.position = new Vector3(Dropoff_Handler.DropoffX, Dropoff_Handler.DropoffY, 100f);//if statement nur für in editor bequemlichkeit
-        
+       
         //Drop off ohne Dropoff Handler:
         //Random Position auf der Map
-        //Player.transform.position = new Vector3(UnityEngine.Random.Range(-500f, 500f), UnityEngine.Random.Range(-500f, 500f), 112.2f); //Map Range
+        Player.transform.position = new Vector3(UnityEngine.Random.Range(-266f, 266f), UnityEngine.Random.Range(-266f, 266f), 112.2f); //Map Range
         //Testing
-        Player.transform.position = new Vector3(-103, -30, 112.2f);
+        //Player.transform.position = new Vector3(-164, -248, 112.2f);
         Player_Name_Ingame = Menu_Handler.Player_Name;
         Name_Text.GetComponent<TextMeshPro>().text = Player_Name_Ingame;
         World = GameObject.Find("World");
@@ -135,94 +133,66 @@ public class Movement : MonoBehaviour
     }
 
     void FixedUpdate(){   
-        if(!CarStearing){
-            float X = joystick1.Horizontal;
-            float Y = joystick1.Vertical;
+        float X = joystick1.Horizontal;
+        float Y = joystick1.Vertical;
 
-            Vector2 movementDir = new Vector2(X  * speed * Time.fixedDeltaTime, Y  * speed * Time.fixedDeltaTime);
+        Vector2 movementDir = new Vector2(X  * speed * Time.fixedDeltaTime, Y  * speed * Time.fixedDeltaTime);
 
-            TargetTransform.Translate(movementDir, Space.World);
+        TargetTransform.Translate(movementDir, Space.World);
 
-            if(transform.position != lastpos){
-                animatior.SetBool("isrunning", true);
-                //Animation speed
-                float animspeed;
-                animspeed = ((Vector2.Distance(Joystick1handle.transform.position, joystick1.transform.position)) / 2.37f) * 1.5f; //distanz vom halde vom center berechnen(max ist 2.37 um also auf eine range von 0-1 zu kommen teilen wir durch max)
-                animatior.SetFloat("runspeed", animspeed);
-                steping = true;
-            }else{
-                animatior.SetBool("isrunning", false);
-                animatior.SetFloat("runspeed", 1f);
-                steping = false;
-            }
-            lastpos = transform.position;
+        if(transform.position != lastpos){
+            animatior.SetBool("isrunning", true);
+            //Animation speed
+            float animspeed;
+            animspeed = ((Vector2.Distance(Joystick1handle.transform.position, joystick1.transform.position)) / 2.37f) * 1.5f; //distanz vom halde vom center berechnen(max ist 2.37 um also auf eine range von 0-1 zu kommen teilen wir durch max)
+            animatior.SetFloat("runspeed", animspeed);
+            steping = true;
+            audio_manager.onGrass = true; //Testing
+        }else{
+            animatior.SetBool("isrunning", false);
+            animatior.SetFloat("runspeed", 1f);
+            steping = false;
+            audio_manager.onGrass = false;
+        }
+        lastpos = transform.position;
 
-            //Rotation für rotationsstick setzen
-            if(joystick2.Horizontal != 0f || joystick2.Vertical != 0f){
-                RotateY = joystick2.Vertical;
-                RotateX = joystick2.Horizontal;
-                if(shootwhilerotate) shoot.shootbttn2 = true; //Wenn Spieler sich rotiert dann soll er auch schießen (bisschen ekhelig geschrieben)
-            }else{
-                RotateX = 0f;
-                RotateY = 0f;
-                //shoot.shootbttn = false;
-                shoot.shootbttn2 = false; //Wenn bttn2 false ist kann spieler aber trotzdem noch bttn1 mit dem shoot button im ui auf true setzen
-            }
+        //Rotation für rotationsstick setzen
+        if(joystick2.Horizontal != 0f || joystick2.Vertical != 0f){
+            RotateY = joystick2.Vertical;
+            RotateX = joystick2.Horizontal;
+            if(shootwhilerotate) shoot.shootbttn2 = true; //Wenn Spieler sich rotiert dann soll er auch schießen (bisschen ekhelig geschrieben)
+        }else{
+            RotateX = 0f;
+            RotateY = 0f;
+            //shoot.shootbttn = false;
+            shoot.shootbttn2 = false; //Wenn bttn2 false ist kann spieler aber trotzdem noch bttn1 mit dem shoot button im ui auf true setzen
+        }
 
-            //in die richtung drehen in die man läuft falls roatations stick nicht bewegt wird
-            if(X != 0 || Y != 0 && new Vector2(RotateX,RotateY) == Vector2.zero){
-                transform.up = new Vector2(X,Y);
-            }
+        //in die richtung drehen in die man läuft falls roatations stick nicht bewegt wird
+        if(X != 0 || Y != 0 && new Vector2(RotateX,RotateY) == Vector2.zero){
+            transform.up = new Vector2(X,Y);
+        }
 
-            if(new Vector2(RotateX,RotateY) != Vector2.zero){
-                transform.up = new Vector2(RotateX,RotateY);
-            }
-            }/*else{
-            //Car Stearing
-            float X = joysticklenken.Horizontal;
-            float Y = joystickfahren.Vertical;
-            
-            if(MathF.Abs(Y) > 0f){ //Wenn Gas gegeben wird
-                if(Y > 0f){ //Vorwährts fahren
-                    if(!Vorwährts) beschleunigung = 0.1f; //Beschleunigung beim gangwächsel auf 0 setzen
-                    Vorwährts = true;
-                    //Beschleunigung erhöhen
-                    if(beschleunigung > .6f) beschleunigung *= 1.002f; //Exponenziel beschleunigen aber langsamer
-                    else if(beschleunigung < 1f) beschleunigung *= 1.004f; //Exponenziel beschleunigen
-                    if(beschleunigung > 1f) beschleunigung = 1f; //Damit beschleunigung nicht über 1 geht
-                    Yvel = Y;
-                }else if(Y < 0f){ //Rückwärts fahren
-                    if(Vorwährts) beschleunigung = 0.1f; //Beschleunigung beim gangwächsel auf 0 setzen
-                    Vorwährts = false;
-                    if(beschleunigung < 1f) beschleunigung *= 1.002f; //Exponenziel beschleunigen
-                    if(beschleunigung > .7f) beschleunigung = 1f; //Damit beschleunigung nicht über 1 geht
-                    Yvel = MathF.Abs(Y);
-                }else if(Y == 0f){
-                    if(beschleunigung != 0f){
-                        beschleunigung *= .9f; //Beschleunigung verringern
-                        beschleunigung = (float)Decimal.Round((decimal)beschleunigung, 1); //Rundet beschleunigung auf eine nachkommastelle
-                    }
-                    Yvel *= .9f;
-                }
-            } Debug.Log("Beschleunigung: " + beschleunigung);
+        if(new Vector2(RotateX,RotateY) != Vector2.zero){
+            transform.up = new Vector2(RotateX,RotateY);
+        }
+        // If aim assist is active, adjust the player's rotation
+        if (AimAssistActive && enemyTransform != null)
+        {
+            Vector2 directionToEnemy = (enemyTransform.position - transform.position).normalized;
+            float angleToEnemy = Mathf.Atan2(directionToEnemy.y, directionToEnemy.x) * Mathf.Rad2Deg;
 
-            //Check ob sich das fahrzeug bewegt
-            if(lastpos != TargetTransform.position){
-                //Beschleunigung
-                //Lenken
-                X *= -1f;
-                if(Y < 0) X *= -1f; //Rückwärts fahrend
-                float rotation = X * (Y * 50f); //man rotiert schneller desto schneller man fährt
-                if(Y != 0) CarRB.rotation += rotation * Time.fixedDeltaTime;
-            }
-            lastpos = TargetTransform.position;
+            // Berechne den Unterschied zwischen der aktuellen Rotation und der Rotation zum Gegner
+            float currentAngle = transform.eulerAngles.z;
+            float targetAngle = angleToEnemy - 90f;
+            float angleDifference = Mathf.DeltaAngle(currentAngle, targetAngle);
 
-            //Apply Force
-            CarRB.velocity = new Vector2(0f, Yvel * 450f * beschleunigung * carspeed * Time.fixedDeltaTime); //450f ist der grundsatz.
+            // Begrenze den Einfluss des Aim-Assists
+            float correctedAngle = Mathf.LerpAngle(currentAngle, currentAngle + angleDifference * assistStrength, rotationSpeed * Time.fixedDeltaTime);
 
-            //Player folgt imaginär dem fahrzeug
-            transform.position = new Vector2(TargetTransform.position.x, TargetTransform.position.y);
-        }*/
+            // Setze die Rotation mit der korrigierten Richtung
+            transform.rotation = Quaternion.Euler(0, 0, correctedAngle);
+        }
     }
 
     private IEnumerator FootstepGen(){
@@ -259,8 +229,17 @@ public class Movement : MonoBehaviour
         //Camera Zoom
         StartCoroutine(GetComponent<Inventory_Handler>().CarZoomOut());
     }
-    public void ExitCar(){
-        StartCoroutine(GetComponent<Inventory_Handler>().CameraZoomOut());
+    
+    public void AimAssist(Transform EnemyPos)
+    {
+        AimAssistActive = true;
+        enemyTransform = EnemyPos;
+    }
+
+    public void StopAssist()
+    {
+        AimAssistActive = false;
+        enemyTransform = null; // Clear target when aim assist is stopped
     }
 
     public void enterlooting(){

@@ -1,8 +1,8 @@
 <?php
 
-$servername = "http://192.168.0.187/BBR/BBR.php";
-$username = "admin";
-$password = "bti";
+$servername = "http://localhost/BBR/BBR.php";
+$username = "root";
+$password = "";
 $db = "BBR"; //Datenbank Name
 // Create connection
 $mysqli = new mysqli($servername, $username, $password,$db);

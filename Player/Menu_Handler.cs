@@ -8,7 +8,11 @@ using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Net.NetworkInformation;
 using TMPro;
-
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using UnityEngine.Timeline;
+using UnityEngine.Audio;
 public class Menu_Handler : MonoBehaviour
 {
     public GameObject Player, Shop_Button, Play_Button, Friends_Button, Inv_Button, Coin_Counter, Emerald_Counter, Player_Name_Button, Name_Input, BG1, BG2, BG3, BG4, ShopBG, Logo, Settings_Button, Settings_BG, Settings_Menu, Settings_Menu_X, AddBotButton, RemoveBotButton, Bot_Display;
@@ -20,7 +24,6 @@ public class Menu_Handler : MonoBehaviour
     public static int Menu_Bots = 19; //19 Bots werden an Map Handler gesendet damit auf der Map später 20 Man stehen
     public float CAMSPEED = 0.001f;
     public float Playerspinspeed;
-    public static bool performancemode = true;
     public Image Black;
     public static UserData localdata = new UserData(); //Sofort das Localdata object erstellen damit sofort zum launch des spiels daten gelesen/geschrieben werden können
     public static UserData loadeddata;
@@ -79,6 +82,8 @@ public class Menu_Handler : MonoBehaviour
     [SerializeField] private Sprite GlobalLeaderboardButton_Gray;
     [SerializeField] private Sprite RankLeaderboardButton_Green;
     [SerializeField] private Sprite RankLeaderboardButton_Gray;
+    [SerializeField] private Sprite InvButtonSprite;
+    [SerializeField] private Sprite InvButtonSpriteNoConnection;
     [SerializeField] private GameObject GlobalLeaderBoardParent;
     [SerializeField] private GameObject GlobalLeaderboardScroll;
     [SerializeField] private Sprite Place1Sprite;
@@ -126,7 +131,41 @@ public class Menu_Handler : MonoBehaviour
     public static Sprite PlayerModel_LoadingScreen_Image;
     [SerializeField] private Image VisionShootSwitchButton;
     [SerializeField] private Sprite VisionShootSwitchOff, VisionShootSwitchOn;
+    public static int FreshXP;
+    [SerializeField] private GameObject GrayBG;
+    [SerializeField] private GameObject LevelText_Anim;
+    [SerializeField] private GameObject XPNumber_Anim;
+    [SerializeField] private GameObject XpBG_Anim;
+    [SerializeField] private GameObject XPBar_Anim;
+    [SerializeField] private GameObject XpOKButton;
+    [SerializeField] private GameObject XPProgressBG;
+    public static float XPProgressbeforesaveprcnt, AktuellXPBeforeSave, XPtoLevelUpBeforeSave;
+    public static int Levelbeforesave;
+    private float tempcounterval;
+    [SerializeField] private TextMeshProUGUI DaylyRewardTimerText;
+    public string RemainingTime, TimeNOW;
+    public GameObject DaylyRewardButton;
+    [SerializeField] private Image DaylyRewardButtonAusrufezeichen;
+    public string _gettimeNOW;
+    public string _getdateNOW;
+    public TimeSpan TimetoWait;
+    bool dontstarttimertwice = false;
+    public Animator PlayButtonAnim;
+    public Sprite DaylyrewardButtonGray;
+    public Sprite DaylyrewardButton;
+    public bool InMenu = true;
+    public static bool DuoMode = false;
+    public Button SoloButton, DuoButton;
+    public AudioClip Menu_Click_Sound;
+    public Toggle TurnOffAllBotsSwitch, UnlockFPSSwitch;
+    public Slider SFXSlider;
+
     void Awake(){
+        Screen.sleepTimeout = SleepTimeout.NeverSleep;
+        //-High Performance settings-
+        QualitySettings.vSyncCount = 0;
+        Application.targetFrameRate = 120;
+        //----------------------------
         instance = this;
         //50 50 ob Ad Button erscheint
         int randnum = UnityEngine.Random.Range(0, 2);
@@ -143,12 +182,11 @@ public class Menu_Handler : MonoBehaviour
         //Init Ads
         if(loadadcounter >= 1) AdButton.GetComponent<RewardedAdsButton>().LoadAd();  //Aber nur nach dem ersten start   
         loadadcounter++;
-        
     }
     void Start(){
-        //-High Performance settings-
-        QualitySettings.vSyncCount = 0;
-        Application.targetFrameRate = 120;
+        if(FreshXP != 0){ //Check ob XP Counter Animation gespielt werden muss
+            StartCoroutine(PlayXPAnimation());
+        }
         try{
             Readdata(); //Versuche Spieler daten zu lesen und wenn keine da sind
 
@@ -162,8 +200,19 @@ public class Menu_Handler : MonoBehaviour
             InitSkinButtons();
             InitLevel();
             ApplySettings();
+            InitSettingsWindow();
         }catch{
             StartCoroutine(InitUserData()); //Erstelle neue Spielerdaten und lese sie sofort
+        }
+        if(!localdata.FirstLaunch && localdata.DaylyRewardClaimed == true){ //Timer Läuft | Reward Claimed
+            InitTimer();
+            StartCoroutine(InitUserData3());
+        }else{ //Kein Timer | Reward READY
+            localdata.FirstLaunch = false;
+            StartCoroutine(InitUserData3());
+            DaylyRewardButton.SetActive(true); //Reward on first Launch
+            DaylyRewardTimerText.gameObject.SetActive(false);
+            DaylyRewardButton.GetComponent<Animator>().SetBool("Jiggle", true);
         }
     }
 
@@ -201,7 +250,11 @@ public class Menu_Handler : MonoBehaviour
         yield return new WaitForEndOfFrame();
         //Register on Database
         StartCoroutine(OnlineManager.RegisterNewUserOnDatabase());
-        while(OnlineManager.NewID == 0){ yield return new WaitForEndOfFrame(); }
+        while(OnlineManager.NewID == 0){ 
+            yield return new WaitForEndOfFrame(); 
+            //Check if Connection is still there
+            //!!
+        }
         localdata.PlayerID = OnlineManager.NewID;
         localdata.Saved_Player_Name = "Player#" + OnlineManager.NewID.ToString();
         Writedata(localdata);
@@ -218,6 +271,7 @@ public class Menu_Handler : MonoBehaviour
         InitSkinButtons();
         InitLevel();
         ApplySettings();
+        InitSettingsWindow();
         yield return null;
     }
 
@@ -226,6 +280,8 @@ public class Menu_Handler : MonoBehaviour
         LobbyMusic.GetComponent<AudioSource>().volume = loadeddata.Menu_Music_Volume;
         //Music Slider
         MusicSlider.GetComponent<Slider>().value = loadeddata.Menu_Music_Volume;
+        //SFX Slider
+        SFXSlider.value = loadeddata.SFX_Volume;
         //Vision Switch
         if(loadeddata.VisionShootSwitch){
             VisionShootSwitchButton.sprite = VisionShootSwitchOn;
@@ -260,6 +316,220 @@ public class Menu_Handler : MonoBehaviour
         public int[] FriendsIDs = new int[6]; //Wird bei aufrufen der Freunde einmal durchgelooped
         public float Menu_Music_Volume = .5f;
         public bool VisionShootSwitch = false;
+        public bool FirstLaunch = true;
+        public string LastTimeUntillDaylyReward;
+        public string LastrewardDate;
+        public string LastrewardTime;
+        public bool DaylyRewardClaimed = false;
+        public bool TurnOffBots = false;
+        public bool performancemode = true;
+        public float SFX_Volume = 1;
+    }
+    public string[] GetTime(){
+        string time = null;
+        time = NTPClient.GetNetworkTime().ToString();
+        while(time == null){} //Wait...
+        //remove the date from the string
+        string[] split = time.Split(' ');
+        _gettimeNOW = split[1];
+        _getdateNOW = split[0];
+        return split;
+    }
+    public class NTPClient{ //Chatgpt
+    private const string NtpServer = "pool.ntp.org";
+
+    public static DateTime GetNetworkTime()
+    {
+        // NTP message size - 16 bytes of the digest (RFC 2030)
+        var ntpData = new byte[48];
+
+        //Setting the Leap Indicator, Version Number and Mode values
+        ntpData[0] = 0x1B;
+
+        var addresses = Dns.GetHostEntry(NtpServer).AddressList;
+
+        // The UDP port number assigned to NTP is 123
+        var ipEndPoint = new IPEndPoint(addresses[0], 123);
+        var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+        socket.Connect(ipEndPoint);
+
+        //Send Request
+        socket.Send(ntpData);
+        socket.Receive(ntpData);
+        socket.Close();
+
+        //Offset to get to the "Transmit Timestamp" field (time at which the reply
+        //departed the server for the client, in 64-bit timestamp format."
+        const byte serverReplyTime = 40;
+
+        //Get the seconds part
+        ulong intPart = BitConverter.ToUInt32(ntpData, serverReplyTime);
+
+        //Get the seconds fraction
+        ulong fractPart = BitConverter.ToUInt32(ntpData, serverReplyTime + 4);
+
+        //Convert From big-endian to little-endian
+        intPart = SwapEndianness(intPart);
+        fractPart = SwapEndianness(fractPart);
+
+        var milliseconds = (intPart * 1000) + ((fractPart * 1000) / 0x100000000L);
+
+        //**UTC** time
+        var networkDateTime = (new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc)).AddMilliseconds((long)milliseconds);
+
+        return networkDateTime.ToLocalTime();
+    }
+
+    private static uint SwapEndianness(ulong x)
+    {
+        return (uint)(((x & 0x000000ff) << 24) +
+                      ((x & 0x0000ff00) << 8) +
+                      ((x & 0x00ff0000) >> 8) +
+                      ((x & 0xff000000) >> 24));
+    }
+    }
+
+    private void InitTimer(){
+        //Compare Time now with LastTimeUntillDaylyReward and then set the Timer to the remaining time
+        string[] datearr = localdata.LastrewardDate.Split('.'); //Datum seit claim
+        string[] timearr = localdata.LastrewardTime.Split(':'); //Zeit seit claim
+        int year = Int32.Parse(datearr[2]);
+        int month = Int32.Parse(datearr[1]);
+        int day = Int32.Parse(datearr[0]);
+        int hour = Int32.Parse(timearr[0]);
+        int minute = Int32.Parse(timearr[1]);
+        int second = Int32.Parse(timearr[2]);
+        DateTime dateTime1 = new DateTime(year, month, day, hour, minute, second, DateTimeKind.Utc); //Altes Datum
+        datearr = GetTime()[0].Split('.'); //Datum jetzt
+        timearr = GetTime()[1].Split(':'); //Zeit jetzt
+        year = Int32.Parse(datearr[2]);
+        month = Int32.Parse(datearr[1]);
+        day = Int32.Parse(datearr[0]);
+        hour = Int32.Parse(timearr[0]);
+        minute = Int32.Parse(timearr[1]);
+        second = Int32.Parse(timearr[2]);
+        DateTime dateTime2 = new DateTime(year, month, day, hour, minute, second, DateTimeKind.Utc); //Neues Datum
+
+        //Debug.Log(dateTime2 + " - " + dateTime1);
+        TimeSpan difference = dateTime2 - dateTime1;
+        TimeSpan oneday = TimeSpan.FromDays(1); //1 Tag
+
+        if(difference >= oneday){
+            DaylyRewardButton.SetActive(true);
+            DaylyRewardTimerText.gameObject.SetActive(false);
+            ActivateDaylyReward();
+        }else{
+            difference = oneday - difference;
+            RemainingTime = difference.ToString(@"hh\:mm\:ss");
+            //Debug.Log("Zu Warten ist noch " + RemainingTime);
+            //Show timer and set it to the remaining time
+            //Debug.Log(difference + " Wird nun auf der Uhr angezeigt");
+            if(!dontstarttimertwice){
+                StartTimer();
+                //Stop its Animation
+                DaylyRewardButton.GetComponent<Image>().sprite = DaylyrewardButtonGray;
+                DaylyRewardButton.GetComponent<Button>().enabled = false;
+                DaylyRewardButton.GetComponent<Animator>().SetBool("Jiggle", false);
+                DaylyRewardTimerText.gameObject.SetActive(true);
+            }
+        }
+    }
+
+    private void InitTimerAfterClaim(){
+        TimeSpan difference = new TimeSpan(23, 59, 59); //1 Tag
+        
+        TimetoWait = difference;
+
+        //Debug.Log("Zu Warten ist noch " + TimetoWait.ToString(@"hh\:mm\:ss"));
+
+        RemainingTime = difference.ToString(@"hh\:mm\:ss");
+
+        //Show timer and set it to the remaining time
+        //Debug.Log(RemainingTime + " Wird nun auf der Uhr angezeigt");
+        if(!dontstarttimertwice){
+            StartTimer();
+        }
+    }
+    
+    public void StartTimer(){
+        dontstarttimertwice = true;
+        StartCoroutine(Timer());
+    }
+    private IEnumerator Timer(){
+        while(true){
+            yield return new WaitForSecondsRealtime(1f);
+            UpdateDaylyRewardTimer();
+        }
+    }
+    private void UpdateDaylyRewardTimer(){
+        //Split Start Time String
+        string[] StartTime = RemainingTime.Split(':');
+        int StartHour = int.Parse(StartTime[0]);
+        int StartMinute = int.Parse(StartTime[1]);
+        int StartSecond = int.Parse(StartTime[2]);
+        string StartHourString;
+        string StartMinuteString;
+        string StartSecondString;
+        //Count one Second down and stop on 00:00:00
+        StartSecond--;
+        if(StartSecond < 0){
+            if(StartMinute == 0 && StartHour == 0) ActivateDaylyReward(); //Ende
+            StartSecond = 59;
+            StartMinute--;
+            if(StartMinute < 0){
+                StartMinute = 59;
+                StartHour--;
+            }
+        }
+        //Convert right and then to sring
+        if(StartMinute < 10) StartMinuteString = "0" + StartMinute.ToString();
+        else StartMinuteString = StartMinute.ToString();
+        if(StartSecond < 10) StartSecondString = "0" + StartSecond.ToString();
+        else StartSecondString = StartSecond.ToString();
+        if(StartHour < 10) StartHourString = "0" + StartHour.ToString();
+        else StartHourString = StartHour.ToString();
+
+        //Update Current Time to format 00:00:00
+        RemainingTime = StartHourString + ":" + StartMinuteString + ":" + StartSecondString;
+        //Update Timer Text
+        DaylyRewardTimerText.text = RemainingTime;
+        //Update LastTimeUntillDaylyReward every 10 seconds
+        if(StartSecond % 10 == 0){
+            localdata.LastTimeUntillDaylyReward = RemainingTime;
+            StartCoroutine(InitUserData3()); //Save Data
+        }
+    }
+    private void ActivateDaylyReward(){
+        localdata.DaylyRewardClaimed = false;
+        DaylyRewardTimerText.gameObject.SetActive(false);
+        //Activate Button
+        DaylyRewardButton.GetComponent<Image>().sprite = DaylyrewardButton;
+        DaylyRewardButton.GetComponent<Animator>().SetBool("Jiggle", true);
+        StartCoroutine(InitUserData3()); //Save Data
+        Debug.Log("Daylyreward kann abgeholt werden");
+    }
+
+    public void OnDaylyRewardButtonPressed(){
+        //Give Coins/Emerald 
+        int rand = UnityEngine.Random.Range(0, 7);
+        if(rand == 0) StartCoroutine(Menu_Handler.AddEmerald(1)); //(1/7)% chance
+        else StartCoroutine(Menu_Handler.AddCoins(15)); //10% chance
+        //Reset Timer
+        DaylyRewardTimerText.gameObject.SetActive(true);
+        //Make Button Gray
+        DaylyRewardButton.GetComponent<Image>().sprite = DaylyrewardButtonGray;
+        //DaylyRewardButton.gameObject.SetActive(false);
+        localdata.LastrewardTime = null;
+        localdata.LastrewardDate = null;
+        while(localdata.LastrewardTime == null || localdata.LastrewardDate == null){
+            localdata.LastrewardDate = GetTime()[0];
+            localdata.LastrewardTime = GetTime()[1];
+        }
+        localdata.DaylyRewardClaimed = true;
+        StartCoroutine(InitUserData3()); //Save Data
+
+        InitTimerAfterClaim();
     }
 
     public void InitLevel(){
@@ -272,6 +542,7 @@ public class Menu_Handler : MonoBehaviour
 
         Leveltext.text = "LEVEL " + loadeddata.Level.ToString();
         neededXP.text = loadeddata.aktuelleXP.ToString() + "XP" + "/" + loadeddata.TonextLevelXP.ToString() + "XP";
+        //Debug.Log("Aktuelle XP: " + loadeddata.aktuelleXP + "XP" + " / " + loadeddata.TonextLevelXP + "XP");
     }
     public static void AddXP(int GiveXP){
         float xpuntillvlup = loadeddata.TonextLevelXP - loadeddata.aktuelleXP;
@@ -281,6 +552,7 @@ public class Menu_Handler : MonoBehaviour
             if(localdata.aktuelleXP == localdata.TonextLevelXP){
                 localdata.Level++; //Level up
                 localdata.TonextLevelXP += (int)(localdata.TonextLevelXP / 4) + 20; //Immer 30xp mehr pro höheres level
+                localdata.aktuelleXP = 0; //Aktuelle XP auf 0 setzen
                 if(localdata.Level % 10 == 0){ //Jedes 10 level eine coin
                     //AddEmerald(1);
                     //Darf erst ausgeführt werden wenn Title Menu Scene Geladen ist
@@ -311,8 +583,9 @@ public class Menu_Handler : MonoBehaviour
         localdata = loadeddata;
         instance.StartCoroutine(RewardWindow("Coin", ammount));
     }
-    public static IEnumerator RewardWindow(string type, int amount){ //Muss static sein da es von anderen static scripts aufgerufen wird
-        //Hide UI
+    public static IEnumerator RewardWindow(string type, int amount){ 
+        // Hide UI
+        instance.InMenu = false;
         instance.Player.SetActive(false);
         instance.Shop_Button.SetActive(false);
         instance.Play_Button.SetActive(false);
@@ -331,46 +604,160 @@ public class Menu_Handler : MonoBehaviour
         instance.neededXP.gameObject.SetActive(false);
         instance.GlobalLeaderboardScroll.SetActive(false);
         instance.AdButton.SetActive(false);
-        //Show Reward Window
+        instance.DaylyRewardButton.SetActive(false);
+        instance.DaylyRewardTimerText.gameObject.SetActive(false);
+
+        // Show Reward Window
         instance.RewardWindowObject = Instantiate(instance.RewardWindowPrefab, instance.RewardWindowPos);
-        if(type == "Coin"){ //Coin
+        
+        if (type == "Coin"){ // Coin
             instance.RewardWindowObject.transform.parent = instance.RewardWindowPos;
-            instance.RewardWindowObject.GetComponent<RectTransform>().localPosition = new Vector3(0,0,0); //Center
-            //Set Icon
+            instance.RewardWindowObject.GetComponent<RectTransform>().localPosition = new Vector3(0, 0, 0); // Center
+            // Set Icon
             instance.RewardWindowObject.transform.Find("Coin").gameObject.GetComponent<Image>().sprite = instance.CoinIcon;
-            //Count up the coins
-            yield return new WaitForSeconds(0.3f);
-            for(int i = 0; i <= amount ; i++){
+            // Count up the coins
+            yield return new WaitForSecondsRealtime(0.3f);
+            
+            float delay = 0.03f; // Initiale Verzögerung (schnellerer Start)
+            float maxDelay = 0.5f; // Maximale Verzögerung
+            float accelerationPoint = amount * 0.7f; // Punkt, ab dem die Verzögerung stärker zunimmt
+
+            for (int i = 0; i <= amount; i++){
                 instance.RewardWindowObject.transform.Find("Amount").gameObject.GetComponent<TextMeshProUGUI>().text = i.ToString();
-                yield return new WaitForSeconds(0.1f);
+
+                // Exponentiell langsamer werdendes Zählen mit späterer Entschleunigung
+                yield return new WaitForSecondsRealtime(delay);
+
+                if (i < accelerationPoint) {
+                    delay = Mathf.Min(delay * 1.05f, maxDelay); // Leichter Anstieg der Verzögerung in den ersten 70% des Zählens
+                } else {
+                    delay = Mathf.Min(delay * 1.2f, maxDelay); // Stärkerer Anstieg der Verzögerung in den letzten 30%
+                }
             }
-            //OK Button
+
+            // OK Button
             instance.RewardWindowObject.transform.Find("Ok").GetComponent<Button>().onClick.AddListener(() => {
                 Destroy(instance.RewardWindowObject);
-                //Show UI
+                // Show UI
                 instance.SettingsExit();
                 instance.AdButton.gameObject.GetComponent<Image>().enabled = true;
-                instance.AdButton.gameObject.GetComponent<Button>().enabled = true; //Wird sonst eingebledet (Hot Fix)
+                instance.AdButton.gameObject.GetComponent<Button>().enabled = true; // Hot Fix
             });
-        }else{ //Emerald
+
+            // OK Button Sound on Click
+            instance.RewardWindowObject.transform.Find("Ok").GetComponent<Button>().onClick.AddListener(() => {
+                instance.GetComponentInChildren<AudioSource>().PlayOneShot(instance.Menu_Click_Sound);
+            });
+        } else { // Emerald
             instance.RewardWindowObject.transform.parent = instance.RewardWindowPos;
-            instance.RewardWindowObject.GetComponent<RectTransform>().localPosition = new Vector3(0,0,0); //Center
-            //Set Icon
+            instance.RewardWindowObject.GetComponent<RectTransform>().localPosition = new Vector3(0, 0, 0); // Center
+            // Set Icon
             instance.RewardWindowObject.transform.Find("Coin").gameObject.GetComponent<Image>().sprite = instance.EmeraldIcon;
-            //Count up the coins
-            yield return new WaitForSeconds(0.3f);
-            for(int i = 0; i <= amount ; i++){
+            // Count up the coins
+            yield return new WaitForSecondsRealtime(0.3f);
+
+            float delay = 0.03f; // Initiale Verzögerung (schnellerer Start)
+            float maxDelay = 0.5f; // Maximale Verzögerung
+            float accelerationPoint = amount * 0.7f; // Punkt, ab dem die Verzögerung stärker zunimmt
+
+            for (int i = 0; i <= amount; i++){
                 instance.RewardWindowObject.transform.Find("Amount").gameObject.GetComponent<TextMeshProUGUI>().text = i.ToString();
-                yield return new WaitForSeconds(0.1f);
+
+                // Exponentiell langsamer werdendes Zählen mit späterer Entschleunigung
+                yield return new WaitForSecondsRealtime(delay);
+
+                if (i < accelerationPoint) {
+                    delay = Mathf.Min(delay * 1.05f, maxDelay); // Leichter Anstieg der Verzögerung in den ersten 70% des Zählens
+                } else {
+                    delay = Mathf.Min(delay * 1.2f, maxDelay); // Stärkerer Anstieg der Verzögerung in den letzten 30%
+                }
             }
-            //OK Button
+
+            // OK Button
             instance.RewardWindowObject.transform.Find("Ok").GetComponent<Button>().onClick.AddListener(() => {
                 Destroy(instance.RewardWindowObject);
-                //Show UI
+                // Show UI
                 instance.SettingsExit();
-                instance.AdButton.gameObject.GetComponent<Image>().enabled = true;
-                instance.AdButton.gameObject.GetComponent<Button>().enabled = true;
             });
+        }
+    }
+
+
+    public IEnumerator PlayXPAnimation(){
+        //Grauer Hintergrund anzeigen
+        GrayBG.SetActive(true);
+        //Alle nötigen Objekte aktivieren
+        XPProgressBG.SetActive(true);
+        LevelText_Anim.SetActive(true);
+        XPNumber_Anim.SetActive(true);
+        XPBar_Anim.SetActive(true);
+        XpBG_Anim.SetActive(true);
+        XpOKButton.SetActive(true);
+
+        //Set Start values
+        LevelText_Anim.GetComponent<TextMeshProUGUI>().text = "Level " + Levelbeforesave.ToString();
+        XPBar_Anim.GetComponent<Image>().fillAmount = XPProgressbeforesaveprcnt;
+        XPNumber_Anim.GetComponent<TextMeshProUGUI>().text = AktuellXPBeforeSave.ToString() + "XP" + "/" + XPtoLevelUpBeforeSave.ToString() + "XP";
+        LevelText_Anim.GetComponent<TextMeshProUGUI>().text = "Level " + Levelbeforesave.ToString();
+        //Count up the XP
+        float tempxp = AktuellXPBeforeSave;
+        Image XPBarImage = XPBar_Anim.GetComponent<Image>();
+        yield return new WaitForSecondsRealtime(1f); //Kurz warten vor der Animation
+        for(int i = FreshXP; i > 0; i--){
+            //Add 1 XP to bar
+            tempxp++;
+            //Refresh Bar progress and text
+            XPBarImage.fillAmount = tempxp / XPtoLevelUpBeforeSave;
+            XPNumber_Anim.GetComponent<TextMeshProUGUI>().text = tempxp.ToString() + "XP" + "/" + XPtoLevelUpBeforeSave.ToString() + "XP";
+            //Check if level up
+            if(tempxp == XPtoLevelUpBeforeSave){ //Level UP Logic
+                //refresh values to next level
+                XPtoLevelUpBeforeSave = XPtoLevelUpBeforeSave + 30;
+                AktuellXPBeforeSave = 0;
+                XPBar_Anim.GetComponent<Image>().fillAmount = XPProgressbeforesaveprcnt;
+                XPNumber_Anim.GetComponent<TextMeshProUGUI>().text = AktuellXPBeforeSave.ToString() + "XP" + "/" + XPtoLevelUpBeforeSave.ToString() + "XP";
+                tempxp = 0;
+                XPBarImage.fillAmount = 0;
+                Levelbeforesave++;
+                StartCoroutine(LevelTextAnimation()); //Start Level Text Animation
+            }
+            yield return new WaitForSecondsRealtime(.008f);
+        }
+
+        yield return new WaitForSecondsRealtime(1.5f); //Kurz warten vor Animation
+
+        //Start OK Button Animation
+        StartCoroutine(OKButtonAnimation(XpOKButton));
+
+        FreshXP = 0;
+        yield return null;
+    }
+    private IEnumerator LevelTextAnimation(){
+        //Level Text Animation
+        TextMeshProUGUI LevelText = LevelText_Anim.GetComponent<TextMeshProUGUI>();
+        LevelText.text = "Level " + Levelbeforesave.ToString();
+        for(int i = 0; i < 10; i++){
+            LevelText.fontSize = LevelText.fontSize + 0.7f;
+            yield return new WaitForSecondsRealtime(0.05f);
+        }
+        for(int i = 0; i < 10; i++){
+            LevelText.fontSize = LevelText.fontSize - 0.7f;
+            yield return new WaitForSecondsRealtime(0.05f);
+        }
+        yield return new WaitForSecondsRealtime(2f);
+    }
+    public IEnumerator OKButtonAnimation(GameObject OKButton){
+        RectTransform OKButtonTransform = OKButton.GetComponent<RectTransform>();
+        while(true){
+            for(int i = 0; i < 40; i++){
+                OKButtonTransform.localScale = new Vector3(OKButtonTransform.localScale.x + 0.005f, OKButtonTransform.localScale.y + 0.005f, OKButtonTransform.localScale.z);
+                yield return new WaitForSeconds(0.1f * Time.deltaTime);
+            }
+            for(int i = 0; i < 40; i++){
+                OKButtonTransform.localScale = new Vector3(OKButtonTransform.localScale.x - 0.005f, OKButtonTransform.localScale.y - 0.005f, OKButtonTransform.localScale.z);
+                yield return new WaitForSeconds(0.1f * Time.deltaTime);
+            }
+            yield return new WaitForSeconds(1.5f * Time.deltaTime);
         }
     }
     
@@ -412,42 +799,42 @@ public class Menu_Handler : MonoBehaviour
         while(true){
             for(int i = 0; i != 10; i++){ //ZOOM IN
                 Play_ButtonRect.localScale = new Vector3(Play_ButtonRect.localScale.x +.01f,Play_ButtonRect.localScale.y + .01f,0f);
-                yield return new WaitForSeconds(.03f);
+                yield return new WaitForSecondsRealtime(.03f);
             }
             for(int i = 10; i != 0; i--){ //ZOOM OUT
                 Play_ButtonRect.localScale = new Vector3(Play_ButtonRect.localScale.x - .01f,Play_ButtonRect.localScale.y - .01f,0f);
-                yield return new WaitForSeconds(.03f);
+                yield return new WaitForSecondsRealtime(.03f);
             }
             if(!OfflineMode){
                 //Friends Button
                 for(int i = 0; i != 10; i++){ //ZOOM IN
                     Friends_ButtonRect.localScale = new Vector3(Friends_ButtonRect.localScale.x +.01f,Friends_ButtonRect.localScale.y + .01f,0f);
-                    yield return new WaitForSeconds(.025f);
+                    yield return new WaitForSecondsRealtime(.025f);
                 }
                 for(int i = 10; i != 0; i--){ //ZOOM OUT
                     Friends_ButtonRect.localScale = new Vector3(Friends_ButtonRect.localScale.x - .01f,Friends_ButtonRect.localScale.y - .01f,0f);
-                    yield return new WaitForSeconds(.025f);
+                    yield return new WaitForSecondsRealtime(.025f);
                 }
                 //Shop Button
                 for(int i = 0; i != 10; i++){ //ZOOM IN
                     Shop_ButtonRect.localScale = new Vector3(Shop_ButtonRect.localScale.x +.01f,Shop_ButtonRect.localScale.y + .01f,0f);
-                    yield return new WaitForSeconds(.025f);
+                    yield return new WaitForSecondsRealtime(.025f);
                 }
                 for(int i = 10; i != 0; i--){ //ZOOM OUT
                     Shop_ButtonRect.localScale = new Vector3(Shop_ButtonRect.localScale.x - .01f,Shop_ButtonRect.localScale.y - .01f,0f);
-                    yield return new WaitForSeconds(.025f);
+                    yield return new WaitForSecondsRealtime(.025f);
                 }
             }
             //Inv Button
             for(int i = 0; i != 10; i++){ //ZOOM IN
                 Inv_ButtonRect.localScale = new Vector3(Inv_ButtonRect.localScale.x +.01f,Inv_ButtonRect.localScale.y + .01f,0f);
-                yield return new WaitForSeconds(.025f);
+                yield return new WaitForSecondsRealtime(.025f);
             }
             for(int i = 10; i != 0; i--){ //ZOOM OUT
                 Inv_ButtonRect.localScale = new Vector3(Inv_ButtonRect.localScale.x - .01f,Inv_ButtonRect.localScale.y - .01f,0f);
-                yield return new WaitForSeconds(.025f);
+                yield return new WaitForSecondsRealtime(.025f);
             }
-            yield return new WaitForSeconds(3.5f);
+            yield return new WaitForSecondsRealtime(3.5f);
         }
     }
     public IEnumerator AdAnimation(){
@@ -464,6 +851,16 @@ public class Menu_Handler : MonoBehaviour
             yield return new WaitForSeconds(1f);
         }
     }
+    public void InitSettingsWindow(){
+        //TurnOffBots
+        if(loadeddata.TurnOffBots){
+            TurnOffAllBotsSwitch.isOn = true;
+        }else TurnOffAllBotsSwitch.isOn = false;
+        //UnlockFPS
+        if(loadeddata.performancemode){
+            UnlockFPSSwitch.isOn = true;
+        }else UnlockFPSSwitch.isOn = false;
+    }
     public IEnumerator PlayerSpin(){
         while(true){
             Player.GetComponent<Rigidbody2D>().rotation += Playerspinspeed * Time.deltaTime;
@@ -472,7 +869,12 @@ public class Menu_Handler : MonoBehaviour
     }
 
     public void performanceswitch(bool mode){
-        performancemode = mode;
+        localdata.performancemode = mode;
+        StartCoroutine(InitUserData3());
+    }
+    public void NoBotsSwitch(bool mode){
+        localdata.TurnOffBots = mode;
+        StartCoroutine(InitUserData3());
     }
 
     public IEnumerator BGMove(){
@@ -521,8 +923,13 @@ public class Menu_Handler : MonoBehaviour
                 //Shop Button Grau
                 Shop_Button.GetComponent<Image>().sprite = ShopButtonSpriteNoConnection;
                 Shop_Button.GetComponent<Button>().interactable = false;
+                //Inventory Button Grau
+                Inv_Button.GetComponent<Image>().sprite = InvButtonSpriteNoConnection;
+                Inv_Button.GetComponent<Button>().interactable = false;
                 //Schalte den Ad Button aus
                 AdButton.SetActive(false);
+                //DaylyReward aus
+                DaylyRewardButton.GetComponent<Button>().interactable = false;
                 //Zeige das No Connection Icon
                 NoConnectionIcon.SetActive(true);
                 //Zurück ins Menü
@@ -532,11 +939,17 @@ public class Menu_Handler : MonoBehaviour
                 //Mach den Online Button wieder normal
                 Friends_Button.GetComponent<Image>().sprite = FriendsButtonSprite;
                 Friends_Button.GetComponent<Button>().interactable = true;
-                //Shop Button Grau
+                //Shop Button normal
                 Shop_Button.GetComponent<Image>().sprite = ShopButtonSprite;
                 Shop_Button.GetComponent<Button>().interactable = true;
+                //Inventory Button normal
+                Inv_Button.GetComponent<Image>().sprite = InvButtonSprite;
+                Inv_Button.GetComponent<Button>().interactable = true;
                 //Schalte den Ad Button an
-                DecideAdButton();
+                //Nur wenn im Menü
+                if(InMenu) DecideAdButton();
+                //DaylyReward an machen wenn nicht schon abgeholt
+                if(!localdata.DaylyRewardClaimed) DaylyRewardButton.GetComponent<Button>().interactable = true;
                 //Zeige nicht das No Connection Icon
                 NoConnectionIcon.SetActive(false);
                 OfflineMode = false;
@@ -575,6 +988,7 @@ public class Menu_Handler : MonoBehaviour
     }
     public IEnumerator FriendsWindowCR(){
         //Deactivate Hud
+        InMenu = false;
         Player.SetActive(false);
         Shop_Button.SetActive(false);
         Play_Button.SetActive(false);
@@ -596,6 +1010,8 @@ public class Menu_Handler : MonoBehaviour
         AdButton.SetActive(false);
         instance.AdButton.gameObject.GetComponent<Image>().enabled = false;
         instance.AdButton.gameObject.GetComponent<Button>().enabled = false;
+        DaylyRewardButton.gameObject.SetActive(false);
+        DaylyRewardTimerText.gameObject.SetActive(false);
 
         onlineBG.SetActive(true);
         X_Friends.SetActive(true);
@@ -614,6 +1030,8 @@ public class Menu_Handler : MonoBehaviour
         Slot.GetComponent<Image>().sprite = MySelfSprite;
         LoadedFriends.Add(Slot); //um später beim neu laden zu löschen
         Slot.transform.parent = SlotToBeIn.transform;
+        //Deaktiviere Remove Button
+        Slot.transform.Find("Remove").gameObject.SetActive(false);
         Slot.GetComponent<RectTransform>().localPosition = new Vector3(0f,0f,-5000f); //setze genau auf sein Parent
         //Get Information from Server
         OnlineManager.RecievedData = null;
@@ -657,6 +1075,11 @@ public class Menu_Handler : MonoBehaviour
                 Slot.transform.Find("Name").GetComponent<Text>().text = OnlineManager.RecievedData[0];
                 Slot.transform.Find("Coins").GetComponent<Text>().text = OnlineManager.RecievedData[2];
                 Slot.transform.Find("Emeralds").GetComponent<Text>().text = OnlineManager.RecievedData[3];
+                //Make Remove Button whith ID as parameter
+                Button RemoveButton = Slot.transform.Find("Remove").GetComponent<Button>();
+                RemoveButton.onClick.AddListener(() => {
+                    RemoveFriendButton(i);
+                });
                 //Skin
                 SkinSlot = Slot.transform.Find("Skin").GetComponent<Image>();
                 //Check which skin the database sends and then apply
@@ -718,6 +1141,29 @@ public class Menu_Handler : MonoBehaviour
             Debug.Log("Friend not found");
         }
     }  
+    public void RemoveFriendButton(int ID){
+        RemoveFriendButtonCR(ID);
+    }
+    private void RemoveFriendButtonCR(int ID){
+        localdata = loadeddata;
+        for(int i = 0; i != 6; i++){
+            if(localdata.FriendsIDs[i] == ID){
+                localdata.FriendsIDs[i] = 0;
+            }
+        }
+        //resort array so no 0 is in the middle
+        int[] temp = new int[6];
+        int x = 0;
+        for(int i = 0; i != 6; i++){
+            if(localdata.FriendsIDs[i] != 0){
+                temp[x] = localdata.FriendsIDs[i];
+                x++;
+            }
+        }
+        localdata.FriendsIDs = temp;
+        StartCoroutine(InitUserData3());
+        StartCoroutine(RefreshFriendList());
+    }
     public void GlobalLeaderboardButtonFunc(){
         StartCoroutine(GlobalLeaderboardButtonFuncCR());
     }
@@ -736,7 +1182,6 @@ public class Menu_Handler : MonoBehaviour
         GameObject Slot;
         float nexty = 279f;
         for(int i = 0; i != 20; i++){
-            //Debug.Log(i);
             if(OnlineManager.GlobalBest[i][7] != loadeddata.PlayerID.ToString()){ //Check if id is identicall to mine so i can mark myself on the leaderboard
                 Slot = Instantiate(FriendSlot, GlobalLeaderBoardParent.transform); //spawn default slot
             }else{
@@ -759,6 +1204,9 @@ public class Menu_Handler : MonoBehaviour
             Slot.transform.Find("Name").GetComponent<Text>().text = OnlineManager.GlobalBest[i][0];
             Slot.transform.Find("Coins").GetComponent<Text>().text = OnlineManager.GlobalBest[i][2];
             Slot.transform.Find("Emeralds").GetComponent<Text>().text = OnlineManager.GlobalBest[i][3];
+
+            //Remove Button
+            Slot.transform.Find("Remove").gameObject.SetActive(false);
 
             //Skin
             Image SkinSlot = Slot.transform.Find("Skin").GetComponent<Image>();
@@ -794,6 +1242,8 @@ public class Menu_Handler : MonoBehaviour
         GameObject Slot = Instantiate(FriendSlot, SlotToBeIn.transform);
         LoadedFriends.Add(Slot); //um später beim neu laden zu löschen
         Slot.transform.parent = SlotToBeIn.transform;
+        //Deaktiviere Remove Button
+        Slot.transform.Find("Remove").gameObject.SetActive(false);
         Slot.GetComponent<RectTransform>().localPosition = new Vector3(0f,0f,-5000f); //setze genau auf sein Parent
         //Get Information from Server
         OnlineManager.RecievedData = null;
@@ -864,6 +1314,7 @@ public class Menu_Handler : MonoBehaviour
         FriendsScroll.SetActive(true);
     }
     public void ShopButton(){
+        InMenu = false;
         StartCoroutine(LoadShop());
     }
     public IEnumerator LoadShop(){
@@ -888,6 +1339,8 @@ public class Menu_Handler : MonoBehaviour
         AdButton.SetActive(false);
         instance.AdButton.gameObject.GetComponent<Image>().enabled = false;
         instance.AdButton.gameObject.GetComponent<Button>().enabled = false;
+        DaylyRewardButton.gameObject.SetActive(false);
+        DaylyRewardTimerText.gameObject.SetActive(false);
 
         ShopBG.SetActive(true);
         X_Shop.SetActive(true);
@@ -1091,7 +1544,9 @@ public class Menu_Handler : MonoBehaviour
     }
 
     public void InventoryButton(){
+        Debug.Log("Inventory Button");
         //Deactivate Hud
+        InMenu = false;
         Player.SetActive(false);
         Shop_Button.SetActive(false);
         Play_Button.SetActive(false);
@@ -1111,6 +1566,8 @@ public class Menu_Handler : MonoBehaviour
         neededXP.gameObject.SetActive(false);
         instance.AdButton.gameObject.GetComponent<Image>().enabled = false;
         instance.AdButton.gameObject.GetComponent<Button>().enabled = false;
+        DaylyRewardButton.gameObject.SetActive(false);
+        DaylyRewardTimerText.gameObject.SetActive(false);
 
 
         //Activate Inventory
@@ -1137,6 +1594,8 @@ public class Menu_Handler : MonoBehaviour
         neededXP.gameObject.SetActive(false);
         instance.AdButton.gameObject.GetComponent<Image>().enabled = false;
         instance.AdButton.gameObject.GetComponent<Button>().enabled = false;
+        DaylyRewardButton.gameObject.SetActive(false);
+        DaylyRewardTimerText.gameObject.SetActive(false);
 
         Name_Input.SetActive(true); //Input Field
     }
@@ -1196,10 +1655,21 @@ public class Menu_Handler : MonoBehaviour
     }
 
     public void StartGame(){
-        //Load the Game
-       StartCoroutine(LoadGame());
+        //Show Solo/Duo Mode Animation
+        PlayButtonAnim.SetBool("Select_Mode", true);
+        //StartCoroutine(LoadGameSolo());
     }
-    public IEnumerator LoadGame(){
+    //Solo
+    public void StartGameSolo(){
+        StartCoroutine(LoadGameSolo());
+        DuoMode = false;
+    }
+    //Duo
+    public void StartGameDuo(){
+        StartCoroutine(LoadGameSolo());
+        DuoMode = true;
+    }
+    public IEnumerator LoadGameSolo(){
         //Blend langsam den Black screen ein und lad dann die scene
         //Gib dem Loadingscreen Player model den Skin den der player gerade spielt
         PlayerModel_LoadingScreen.GetComponent<Image>().sprite = Player.GetComponent<Image>().sprite;
@@ -1232,9 +1702,10 @@ public class Menu_Handler : MonoBehaviour
             PlayerModel_LoadingScreenImage.color = new Color(PlayerLoadingColorR, PlayerLoadingColorG, PlayerLoadingColorB, PlayerModel_LoadingScreenImage.color.a + 0.0111111111111111f);
             BBRLogoTrans.localPosition = new Vector3(BBRLogoTrans.localPosition.x - 15.66666666666667f, BBRLogoTransY, BBRLogoTransZ); //Logo und Player wird in die Mite geschoben
             PlayerModelTrans.localPosition = new Vector3(PlayerModelTrans.localPosition.x + 11.68888888888889f, PlayerModelY, PlayerModelZ);
-            yield return new WaitForEndOfFrame();
+            yield return new WaitForSecondsRealtime(0.000001f);
         }
-        SceneManager.LoadSceneAsync(sceneName:"Game");
+        
+        SceneManager.LoadSceneAsync(sceneName:"Map_1");
     }
     public void Settings(){
         Player.SetActive(false); //Deaktiviere das Ganze Menü und mache nur die Settings sichtbar
@@ -1254,6 +1725,9 @@ public class Menu_Handler : MonoBehaviour
         AdButton.GetComponent<Button>().enabled = false;
         ProgressBar.gameObject.SetActive(false);
         ProgressBarBG.gameObject.SetActive(false);
+        DaylyRewardButton.gameObject.SetActive(false);
+        DaylyRewardTimerText.gameObject.SetActive(false);
+        
 
         Settings_Menu_X.gameObject.SetActive(true);
         Settings_Menu.gameObject.SetActive(true);
@@ -1307,8 +1781,33 @@ public class Menu_Handler : MonoBehaviour
         X_Shop.SetActive(false);
         Skin_i.SetActive(false);
         SkinInfoTafel.SetActive(false);
+        //Dicide Ad Button
+        DecideAdButton();
         AdButton.GetComponent<Image>().enabled = true;
         AdButton.GetComponent<Button>().enabled = true;
+        //Und XP Progress
+        XPProgressBG.SetActive(false);
+        LevelText_Anim.SetActive(false);
+        XPNumber_Anim.SetActive(false);
+        XPBar_Anim.SetActive(false);
+        XpBG_Anim.SetActive(false);
+        XpOKButton.SetActive(false);
+        GrayBG.SetActive(false);
+        //Wenn Dayly Reward Claimable ist dann zeige den Button ind Normaler Farbe, Sonst Grau
+        DaylyRewardButton.gameObject.SetActive(true);
+        if(loadeddata.DaylyRewardClaimed){
+            DaylyRewardButton.GetComponent<Image>().sprite = DaylyrewardButtonGray;
+            DaylyRewardTimerText.gameObject.SetActive(true);
+            DaylyRewardButton.GetComponent<Animator>().SetBool("Jiggle", false);
+            DaylyRewardButton.GetComponent<Button>().enabled = false;
+        }else{
+            DaylyRewardButton.GetComponent<Image>().sprite = DaylyrewardButton;
+            DaylyRewardButton.GetComponent<Animator>().SetBool("Jiggle", true);
+            DaylyRewardButton.GetComponent<Button>().enabled = true;
+            DaylyRewardButton.GetComponent<Image>().sprite = DaylyrewardButton;
+            DaylyRewardTimerText.gameObject.SetActive(false);
+        }
+        InMenu = true;
     }
     public void VisionShootSwitch(){
         if(localdata.VisionShootSwitch){
@@ -1327,6 +1826,12 @@ public class Menu_Handler : MonoBehaviour
         //und in die Daten speichern
         localdata = loadeddata;
         localdata.Menu_Music_Volume = newVolume;
+        Writedata(localdata);
+        //Music in Prozent im Menü anzeigen
+    }
+    public void SFXSettingChanged(float newVolume){
+        localdata = loadeddata;
+        localdata.SFX_Volume = newVolume;
         Writedata(localdata);
         //Music in Prozent im Menü anzeigen
     }

@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Bot_Optimazation : MonoBehaviour
+public class Mate_Optimazation : MonoBehaviour
 {
     [SerializeField] private GameObject Playercheck;
     public List<GameObject> enemy_bots = new List<GameObject>();
@@ -13,9 +13,8 @@ public class Bot_Optimazation : MonoBehaviour
     private GameObject[] Kisten_Rechts;
     private GameObject[] Kisten_Links;
     private GameObject[] Gebäude;
-    private Bot_PlayerContact Playercheck_Bot_PlayerContact;
+    public Mate_PlayerContact Playercheck_Mate_PlayerContact;
     private List<GameObject> Items = new List<GameObject>();
-    public Animator anim;
 
     void Start(){
         Player = GameObject.Find("Player");
@@ -26,12 +25,11 @@ public class Bot_Optimazation : MonoBehaviour
         Kisten_Rechts = GameObject.FindGameObjectsWithTag("Kiste_Rechts");
         Kisten_Links = GameObject.FindGameObjectsWithTag("Kiste_Links");
         Gebäude = GameObject.FindGameObjectsWithTag("Gebäude");
-        Playercheck_Bot_PlayerContact = Playercheck.GetComponent<Bot_PlayerContact>();
+        Playercheck_Mate_PlayerContact = Playercheck.GetComponent<Mate_PlayerContact>();
 
 
         StartCoroutine(RegisterItems());
-        StartCoroutine(Check());
-        StartCoroutine(CheckforAnim());    
+        StartCoroutine(Check());        
     }
     private IEnumerator Getallbots(){
         yield return new WaitForSeconds(5f);
@@ -41,18 +39,6 @@ public class Bot_Optimazation : MonoBehaviour
                 continue;
             }
             enemy_bots.Add(i);
-        }
-    }
-
-    private IEnumerator CheckforAnim(){
-        //Check distance to player and if the player is in range, enable the animation script.
-        while(true){
-            if(Vector2.Distance(Player.transform.position, this.gameObject.transform.position) < 45f){
-                anim.enabled = true;
-            }else{
-                anim.enabled = false;
-            }
-            yield return new WaitForSeconds(2.25f);
         }
     }
 
@@ -132,10 +118,11 @@ public class Bot_Optimazation : MonoBehaviour
             }
             end:
             if(is_object_in_range){
-                Playercheck_Bot_PlayerContact.enabled = true;
+                Playercheck_Mate_PlayerContact.enabled = true;
             }else{
-                Playercheck_Bot_PlayerContact.enabled = false;
+                Playercheck_Mate_PlayerContact.enabled = false;
             }
+            Playercheck_Mate_PlayerContact.enabled = true; //Setze immer auf true da er ein Mate ist
             yield return new WaitForSeconds(2.25f);
         }
     }
@@ -176,6 +163,6 @@ public class Bot_Optimazation : MonoBehaviour
         foreach(GameObject item in GameObject.FindGameObjectsWithTag("Small_Ammo")){
             Items.Add(item);
         }
-        yield return new WaitForSeconds(30f);
+        yield return new WaitForSeconds(20f);
     }
 }

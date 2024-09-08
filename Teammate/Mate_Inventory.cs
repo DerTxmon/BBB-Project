@@ -3,7 +3,7 @@ using System.Collections.Generic;
 //using UnityEditorInternal;
 using UnityEngine;
 
-public class Bot_Inventory : MonoBehaviour
+public class Mate_Inventory : MonoBehaviour
 {
     public string Slot1_Item;
     public string Slot2_Item;
@@ -19,15 +19,17 @@ public class Bot_Inventory : MonoBehaviour
     public int slot1_mag_ammo, slot2_mag_ammo, slot3_mag_ammo;
     public int lootcount, lootcount2, Player_Heal, Player_Heal2;
     public bool Glock_18_Selected, M4_Selected, Ak47_Selected, Sniper_Selected, Mp7_Selected, Shotgun_Selected;
-    public GameObject Bot;
+    public GameObject Mate;
     public GameObject Glock_18_Top_Sprite, Ak47_Top_Sprite, M4_Top_Sprite, Sniper_Top_Sprite, Mp7_Top_Sprite, Shotgun_Top_Sprite;
-    public Bot_Behavior behavior;
+    public Mate_Behavior behavior;
+    public Animator anim;
     
     void Awake(){
+        anim = GetComponent<Animator>();
         int rand = Random.Range(0, 2);
         if(rand == 1){ // 50% chance
             Slot1 = true;
-            Slot1_Item = "Glock_18"; //Bot bekommt zum Start eine Glock
+            Slot1_Item = "Glock_18"; //Mate bekommt zum Start eine Glock
             slot1_mag_ammo = 25;
             Slot1_Selected = true;
             lootcount++;
@@ -36,8 +38,8 @@ public class Bot_Inventory : MonoBehaviour
             ChangeSelectedSlot(1);
             behavior.forceflee = false;
             return;
-        }else if(Random.Range(0, 15) == 1){
-            //Give the bot an Ak with an ammo of 30 (10% Chance)
+        }else if(Random.Range(0, 10) == 1){
+            //Give the Mate an Ak with an ammo of 30 (10% Chance)
             Slot1 = true;
             Slot1_Item = "Ak47";
             slot1_mag_ammo = 30;
@@ -47,8 +49,8 @@ public class Bot_Inventory : MonoBehaviour
             //Wähle ersten Slot aus
             ChangeSelectedSlot(1);
             behavior.forceflee = false;
-        }else if(Random.Range(0, 15) == 1){
-            //Give the bot an M4 with an ammo of 30 (10% Chance)
+        }else if(Random.Range(0, 10) == 1){
+            //Give the Mate an M4 with an ammo of 30 (10% Chance)
             Slot1 = true;
             Slot1_Item = "M4";
             slot1_mag_ammo = 30;
@@ -59,6 +61,9 @@ public class Bot_Inventory : MonoBehaviour
             ChangeSelectedSlot(1);
             behavior.forceflee = false;
         }
+    }
+    void Start(){
+        StartCoroutine(StartGivingloot());
     }
 
     // Update is called once per frame
@@ -317,6 +322,7 @@ public class Bot_Inventory : MonoBehaviour
             Slot2_Selected = false;
             Slot3_Selected = true;
         }
+        anim.SetBool("Weaponactive", true);
     }
 
     void Weapon_Visibility(){
@@ -642,6 +648,29 @@ public class Bot_Inventory : MonoBehaviour
             Shotgun_Top_Sprite.transform.gameObject.SetActive(false);
             Shotgun_Selected = false;
         }
+        }
+    }
+    private IEnumerator StartGivingloot(){
+        //Give Mate every 20 Seconds some ammo and heal
+        int counter = 0;
+        while(true){
+            counter++;
+            yield return new WaitForSeconds(20);
+            if(small_ammo < 50){
+                small_ammo += 10;
+            }
+            if(mid_ammo < 50){
+                mid_ammo += 6;
+            }
+            if(big_ammo < 50){
+                big_ammo += 1;
+            }
+            if(shotgun_ammo < 50){
+                shotgun_ammo += 5;
+            }
+            if(counter % 3 == 0 && Player_Heal < 5){
+                Player_Heal += 1;
+            }
         }
     }
 }

@@ -3,23 +3,23 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 
-public class Bot_Shoot : MonoBehaviour
+public class Mate_Shoot : MonoBehaviour
 {
-    Bot_Inventory Inv;
-    public GameObject Bot; //Bot
+    Mate_Inventory Inv;
+    public GameObject Mate; //Mate
     public GameObject Bullet;
     public GameObject Feuerpunkt; 
     public bool isshooting;
     public bool inreload;
     [SerializeField] private GameObject Impactanimation;
     [SerializeField] private LineRenderer[] lineRenderer;
-    private Bot_Behavior bot_behavior;
+    private Mate_Behavior Mate_behavior;
     private Color impactobjectcolor;
     // Start is called before the first frame update
     void Awake()
     {
-        Inv = Bot.GetComponent<Bot_Inventory>(); 
-        bot_behavior = Bot.GetComponent<Bot_Behavior>();
+        Inv = Mate.GetComponent<Mate_Inventory>(); 
+        Mate_behavior = Mate.GetComponent<Mate_Behavior>();
     }
 
     // Update is called once per frame
@@ -35,8 +35,7 @@ public class Bot_Shoot : MonoBehaviour
                     if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(15);
                     }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                        if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 1);
-                        else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 1);
+                        hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Mate.GetComponentInChildren<TextMeshPro>().text, 1);
                     }
                     
                     //Einschuss Animation (Blut)
@@ -99,8 +98,7 @@ public class Bot_Shoot : MonoBehaviour
                         if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(30);
                     }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                        if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(30, Bot.GetComponentInChildren<TextMeshPro>().text, 2);
-                        else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(30, Bot.GetComponentInChildren<TextMeshPro>().text, 2);
+                        hitinfo.collider.GetComponent<Bot_Health>().Damage(30, Mate.GetComponentInChildren<TextMeshPro>().text, 2);
                     }
                     
                         //Einschuss Animation (Blut)
@@ -164,7 +162,7 @@ public class Bot_Shoot : MonoBehaviour
                         if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(35);
                         }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                            hitinfo.collider.GetComponent<Bot_Health>().Damage(35, Bot.GetComponentInChildren<TextMeshPro>().text, 3);
+                            hitinfo.collider.GetComponent<Bot_Health>().Damage(35, Mate.GetComponentInChildren<TextMeshPro>().text, 3);
                         }
                     
                         //Einschuss Animation (Blut)
@@ -227,8 +225,7 @@ public class Bot_Shoot : MonoBehaviour
                     if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(150);
                     }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                        if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(150, Bot.GetComponentInChildren<TextMeshPro>().text, 4);
-                        else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(150, Bot.GetComponentInChildren<TextMeshPro>().text, 4);
+                        hitinfo.collider.GetComponent<Bot_Health>().Damage(150, Mate.GetComponentInChildren<TextMeshPro>().text, 4);
                     }
                     
                     //Einschuss Animation (Blut)
@@ -280,8 +277,7 @@ public class Bot_Shoot : MonoBehaviour
                         if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(15);
                         }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                            if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 5);
-                            else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 5); 
+                            hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Mate.GetComponentInChildren<TextMeshPro>().text, 5);
                         }
                     
                         //Einschuss Animation (Blut)
@@ -368,10 +364,9 @@ public class Bot_Shoot : MonoBehaviour
                 foreach(RaycastHit2D hitinfoshotgun in Shotgunhits){
                     if(hitinfoshotgun){
                         if(hitinfoshotgun.collider.gameObject.tag == "Bot"){
-                            if(hitinfoshotgun.collider.GetComponent<Bot_Health>() != null) hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(9, "Player", 8);
-                            else if(hitinfoshotgun.collider.GetComponent<Mate_Health>() != null) hitinfoshotgun.collider.GetComponent<Mate_Health>().Damage(9, "Player", 8); 
+                            hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(9, "Player", 8);
                         }else if(hitinfoshotgun.collider.gameObject.tag == "Player"){
-                            hitinfoshotgun.collider.GetComponent<Player_Health>().Damage(9);
+                        hitinfoshotgun.collider.GetComponent<Player_Health>().Damage(9);
                         }
                         HitAnimation(hitinfoshotgun);
                     }
@@ -434,8 +429,7 @@ public class Bot_Shoot : MonoBehaviour
                     if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(15);
                     }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                        if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 1);
-                        else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 1);
+                        hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Mate.GetComponentInChildren<TextMeshPro>().text, 1);
                     }
                     
                     //Einschuss Animation (Blut)
@@ -498,8 +492,7 @@ public class Bot_Shoot : MonoBehaviour
                         if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(30);
                     }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                        if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(30, Bot.GetComponentInChildren<TextMeshPro>().text, 2);
-                        else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(30, Bot.GetComponentInChildren<TextMeshPro>().text, 2);
+                        hitinfo.collider.GetComponent<Bot_Health>().Damage(30, Mate.GetComponentInChildren<TextMeshPro>().text, 2);
                     }
                     
                         //Einschuss Animation (Blut)
@@ -563,7 +556,7 @@ public class Bot_Shoot : MonoBehaviour
                         if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(35);
                         }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                            hitinfo.collider.GetComponent<Bot_Health>().Damage(35, Bot.GetComponentInChildren<TextMeshPro>().text, 3);
+                            hitinfo.collider.GetComponent<Bot_Health>().Damage(35, Mate.GetComponentInChildren<TextMeshPro>().text, 3);
                         }
                     
                         //Einschuss Animation (Blut)
@@ -626,8 +619,7 @@ public class Bot_Shoot : MonoBehaviour
                     if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(150);
                     }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                        if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(150, Bot.GetComponentInChildren<TextMeshPro>().text, 4);
-                        else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(150, Bot.GetComponentInChildren<TextMeshPro>().text, 4);
+                        hitinfo.collider.GetComponent<Bot_Health>().Damage(150, Mate.GetComponentInChildren<TextMeshPro>().text, 4);
                     }
                     
                     //Einschuss Animation (Blut)
@@ -679,8 +671,7 @@ public class Bot_Shoot : MonoBehaviour
                         if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(15);
                         }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                            if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 5);
-                            else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 5); 
+                            hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Mate.GetComponentInChildren<TextMeshPro>().text, 5);
                         }
                     
                         //Einschuss Animation (Blut)
@@ -767,10 +758,9 @@ public class Bot_Shoot : MonoBehaviour
                 foreach(RaycastHit2D hitinfoshotgun in Shotgunhits){
                     if(hitinfoshotgun){
                         if(hitinfoshotgun.collider.gameObject.tag == "Bot"){
-                            if(hitinfoshotgun.collider.GetComponent<Bot_Health>() != null) hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(9, "Player", 8);
-                            else if(hitinfoshotgun.collider.GetComponent<Mate_Health>() != null) hitinfoshotgun.collider.GetComponent<Mate_Health>().Damage(9, "Player", 8); 
+                            hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(9, "Player", 8);
                         }else if(hitinfoshotgun.collider.gameObject.tag == "Player"){
-                            hitinfoshotgun.collider.GetComponent<Player_Health>().Damage(9);
+                        hitinfoshotgun.collider.GetComponent<Player_Health>().Damage(9);
                         }
                         HitAnimation(hitinfoshotgun);
                     }
@@ -833,8 +823,7 @@ public class Bot_Shoot : MonoBehaviour
                     if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(15);
                     }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                        if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 1);
-                        else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 1);
+                        hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Mate.GetComponentInChildren<TextMeshPro>().text, 1);
                     }
                     
                     //Einschuss Animation (Blut)
@@ -897,8 +886,7 @@ public class Bot_Shoot : MonoBehaviour
                         if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(30);
                     }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                        if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(30, Bot.GetComponentInChildren<TextMeshPro>().text, 2);
-                        else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(30, Bot.GetComponentInChildren<TextMeshPro>().text, 2);
+                        hitinfo.collider.GetComponent<Bot_Health>().Damage(30, Mate.GetComponentInChildren<TextMeshPro>().text, 2);
                     }
                     
                         //Einschuss Animation (Blut)
@@ -962,7 +950,7 @@ public class Bot_Shoot : MonoBehaviour
                         if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(35);
                         }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                            hitinfo.collider.GetComponent<Bot_Health>().Damage(35, Bot.GetComponentInChildren<TextMeshPro>().text, 3);
+                            hitinfo.collider.GetComponent<Bot_Health>().Damage(35, Mate.GetComponentInChildren<TextMeshPro>().text, 3);
                         }
                     
                         //Einschuss Animation (Blut)
@@ -1025,8 +1013,7 @@ public class Bot_Shoot : MonoBehaviour
                     if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(150);
                     }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                        if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(150, Bot.GetComponentInChildren<TextMeshPro>().text, 4);
-                        else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(150, Bot.GetComponentInChildren<TextMeshPro>().text, 4);
+                        hitinfo.collider.GetComponent<Bot_Health>().Damage(150, Mate.GetComponentInChildren<TextMeshPro>().text, 4);
                     }
                     
                     //Einschuss Animation (Blut)
@@ -1078,8 +1065,7 @@ public class Bot_Shoot : MonoBehaviour
                         if(hitinfo.collider.gameObject.tag == "Player"){
                         hitinfo.collider.GetComponent<Player_Health>().Damage(15);
                         }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                            if(hitinfo.collider.GetComponent<Bot_Health>() != null) hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 5);
-                            else if(hitinfo.collider.GetComponent<Mate_Health>() != null) hitinfo.collider.GetComponent<Mate_Health>().Damage(15, Bot.GetComponentInChildren<TextMeshPro>().text, 5); 
+                            hitinfo.collider.GetComponent<Bot_Health>().Damage(15, Mate.GetComponentInChildren<TextMeshPro>().text, 5);
                         }
                     
                         //Einschuss Animation (Blut)
@@ -1166,10 +1152,9 @@ public class Bot_Shoot : MonoBehaviour
                 foreach(RaycastHit2D hitinfoshotgun in Shotgunhits){
                     if(hitinfoshotgun){
                         if(hitinfoshotgun.collider.gameObject.tag == "Bot"){
-                            if(hitinfoshotgun.collider.GetComponent<Bot_Health>() != null) hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(9, "Player", 8);
-                            else if(hitinfoshotgun.collider.GetComponent<Mate_Health>() != null) hitinfoshotgun.collider.GetComponent<Mate_Health>().Damage(9, "Player", 8); 
+                            hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(9, "Player", 8);
                         }else if(hitinfoshotgun.collider.gameObject.tag == "Player"){
-                            hitinfoshotgun.collider.GetComponent<Player_Health>().Damage(9);
+                        hitinfoshotgun.collider.GetComponent<Player_Health>().Damage(9);
                         }
                         HitAnimation(hitinfoshotgun);
                     }

@@ -19,6 +19,7 @@ public class Shoot : MonoBehaviour
     [SerializeField] private Sprite Greenbutton, Redbutton;
     [SerializeField] private GameObject Impactanimation;
     [SerializeField] private LineRenderer[] lineRenderer;
+    [SerializeField] private LineRenderer[] lineRendererDark;
     public LayerMask layerMask;
     private Color impactobjectcolor;
     public static int Damage_dealt;
@@ -33,10 +34,14 @@ public class Shoot : MonoBehaviour
     public Sprite Killfeed_Mp7;
     public Sprite Killfeed_Zone;
     public Sprite Killfeed_Faust;
+    public Sprite Killfeed_Shotgun;
     TextMeshProUGUI MörderText, OpferText;
     Image Background, GrundImage;
     GameObject NewKillfeedEntry;
     UI_Handler uihandler;
+    public AudioSource ShootingAudio;
+    public AudioClip Glock_18_Shot, M4_Shot, Ak47_Shot, Sniper_Shot, Mp7_Shot, Shotgun_Shot;
+    public AudioClip Glock_18_Reload, M4_Reload, Ak47_Reload, Sniper_Reload, Mp7_Reload, Shotgun_Reload;
     
     void Awake(){
         uihandler = Player.GetComponent<UI_Handler>();
@@ -67,8 +72,13 @@ public class Shoot : MonoBehaviour
                     hitinfo.collider.GetComponent<Player_Health>().Damage(17);
                     Damage_dealt += 17;
                 }else if(hitinfo.collider.gameObject.tag == "Bot"){
-                    if(hitinfo.collider.GetComponent<Bot_Health>().health <= 17) gameObject.GetComponent<Inventory_Handler>().Kills++;
-                    hitinfo.collider.GetComponent<Bot_Health>().Damage(17, "Player", 7);
+                    if(hitinfo.collider.GetComponent<Bot_Health>() != null){
+                        if(hitinfo.collider.GetComponent<Bot_Health>().health <= 17) gameObject.GetComponent<Inventory_Handler>().Kills++;
+                        hitinfo.collider.GetComponent<Bot_Health>().Damage(17, "Player", 7);
+                    }if(hitinfo.collider.GetComponent<Mate_Health>() != null){
+                        if(hitinfo.collider.GetComponent<Mate_Health>().health <= 17) gameObject.GetComponent<Inventory_Handler>().Kills++;
+                        hitinfo.collider.GetComponent<Mate_Health>().Damage(17, "Player", 7);
+                    }
                     Damage_dealt += 17;
                 }
                 
@@ -86,6 +96,8 @@ public class Shoot : MonoBehaviour
         if(Inv.Slot1_Item == "" || Inv.Slot1_Item == null && !ishitting && !isshooting) StartCoroutine(Hit()); //Schlagen
         //Glock-18
         if(Inv.Glock_18_Selected == true && isshooting == false && Inv.slot1_mag_ammo > 0){
+            ShootingAudio.clip = Glock_18_Shot;
+            ShootingAudio.Play();
             isshooting = true;
             //Raycast schuss
             RaycastHit2D hitinfo = Physics2D.Raycast(Feuerpunkt.transform.position, Feuerpunkt.transform.up, 50f, layerMask); //Glock schießt 50f weit
@@ -96,25 +108,36 @@ public class Shoot : MonoBehaviour
                 }else if(hitinfo.collider.gameObject.tag == "Bot"){
                     if(hitinfo.collider.GetComponent<Bot_Health>().health <= 15){
                         gameObject.GetComponent<Inventory_Handler>().Kills++;
-                        Killfeed(Menu_Handler.loadeddata.Saved_Player_Name, hitinfo.collider.GetComponent<TextMeshPro>().text, 1); //Player name + Bot name + Weapon ID
+                        Killfeed(Menu_Handler.loadeddata.Saved_Player_Name, hitinfo.collider.GetComponent<TextMeshProUGUI>().text, 1); //Player name + Bot name + Weapon ID
                     } 
                     hitinfo.collider.GetComponent<Bot_Health>().Damage(15, "Player", 1);
                     Damage_dealt += 15;
                 }
                 
                 HitAnimation(hitinfo);
+                //Gray Line
                 lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                 lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
             }else{
                 lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                 lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
-                lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f)); //Set Z
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f)); //Set Z
             }
             lineRenderer[1].enabled = true;
+            lineRendererDark[1].enabled = true;
+            // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
             //Wait one frame
             yield return new WaitForSeconds(0.05f);
             lineRenderer[1].enabled = false;
-
+            lineRendererDark[1].enabled = false;
+            // ResetTracers(lineRenderer[1], lineRendererDark[1]);
             Inv.slot1_mag_ammo--;
             yield return new WaitForSeconds(1f); 
             isshooting = false;
@@ -159,17 +182,30 @@ public class Shoot : MonoBehaviour
                     }
                 
                     HitAnimation(hitinfo);
+                    //Gray Line
                     lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
                 }else{
+                    //Gray Line
                     lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                     lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                    lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
                 }
                 lineRenderer[1].enabled = true;
+                lineRendererDark[1].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
                 //Wait one frame
                 yield return new WaitForSeconds(0.05f);
                 lineRenderer[1].enabled = false;
+                lineRendererDark[1].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
                 yield return new WaitForSecondsRealtime(0.3f);
             }
             ende:
@@ -215,17 +251,29 @@ public class Shoot : MonoBehaviour
                     }
                 
                     HitAnimation(hitinfo);
+                    //Gray Line
                     lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
                 }else{
                     lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                     lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                    lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
                 }
                 lineRenderer[1].enabled = true;
+                lineRendererDark[1].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
                 //Wait one frame
                 yield return new WaitForSeconds(0.05f);
                 lineRenderer[1].enabled = false;
+                lineRendererDark[1].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
                 yield return new WaitForSecondsRealtime(0.3f);
             }
             ende:
@@ -256,6 +304,8 @@ public class Shoot : MonoBehaviour
         //Sniper
         if(Inv.Sniper_Selected == true && isshooting == false && Inv.slot1_mag_ammo > 0){
             isshooting = true;
+            ShootingAudio.clip = Sniper_Shot;
+            ShootingAudio.Play();
             //Raycast schuss
             RaycastHit2D hitinfo = Physics2D.Raycast(Feuerpunkt.transform.position, Feuerpunkt.transform.up, 150f); //Glock schießt 50f weit
             if(hitinfo){
@@ -271,14 +321,26 @@ public class Shoot : MonoBehaviour
                 HitAnimation(hitinfo);
                 lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                 lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
             }else{
                 lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                 lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 150f);
+                lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 150f);
+                lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
             }
             lineRenderer[1].enabled = true;
+            lineRendererDark[1].enabled = true;
+            // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
             //Wait one frame
             yield return new WaitForSeconds(0.2f);
             lineRenderer[1].enabled = false;
+            lineRendererDark[1].enabled = false;
+            // ResetTracers(lineRenderer[1], lineRendererDark[1]);
             Inv.slot1_mag_ammo--;
             yield return new WaitForSeconds(4f); 
             isshooting = false;
@@ -338,15 +400,26 @@ public class Shoot : MonoBehaviour
                 }
                     lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
                 }else{
                     lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                     lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                    lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
                 }
                 lineRenderer[1].enabled = true;
+                lineRendererDark[1].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
                 //Wait one frame
                 yield return new WaitForSeconds(0.05f);
                 lineRenderer[1].enabled = false;
+                lineRendererDark[1].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
                 yield return new WaitForSecondsRealtime(0.09f);
             }
             ende:
@@ -376,6 +449,8 @@ public class Shoot : MonoBehaviour
         //Shotgun
         if(Inv.Shotgun_Selected == true && isshooting == false && Inv.slot1_mag_ammo > 0){
             isshooting = true;
+            ShootingAudio.clip = Shotgun_Shot;
+            ShootingAudio.Play();
             //new
             //Raycast schüsse (5 Stück)
             RaycastHit2D[] Shotgunhits = new RaycastHit2D[10];
@@ -402,11 +477,11 @@ public class Shoot : MonoBehaviour
             foreach(RaycastHit2D hitinfoshotgun in Shotgunhits){
                 if(hitinfoshotgun){
                     if(hitinfoshotgun.collider.gameObject.tag == "Bot"){
-                        if(hitinfoshotgun.collider.GetComponent<Bot_Health>().health <= 5){
+                        if(hitinfoshotgun.collider.GetComponent<Bot_Health>().health <= 9){
                             gameObject.GetComponent<Inventory_Handler>().Kills++;
-                            Killfeed(Menu_Handler.loadeddata.Saved_Player_Name, hitinfoshotgun.collider.GetComponent<TextMeshPro>().text, 1); //Player name + Bot name + Weapon ID
+                            Killfeed(Menu_Handler.loadeddata.Saved_Player_Name, hitinfoshotgun.collider.GetComponentInChildren<TextMeshPro>().text, 8); //Player name + Bot name + Weapon ID
                         } 
-                        hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(5, "Player", 1);
+                        hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(9, "Player", 8);
                         Damage_dealt += 5;
                     }
                     HitAnimation(hitinfoshotgun);
@@ -418,16 +493,25 @@ public class Shoot : MonoBehaviour
                 if(hitinfoshotgun){
                     lineRenderer[x].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[x].SetPosition(1, new Vector3(hitinfoshotgun.point.x, hitinfoshotgun.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[x].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[x].SetPosition(1, new Vector3(hitinfoshotgun.point.x, hitinfoshotgun.point.y, 120.01f));
                 }else{
                     lineRenderer[x].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[x].SetPosition(1, new Vector2(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y) + Directions[x] * 10f);
                     lineRenderer[x].SetPosition(1, new Vector3(lineRenderer[x].GetPosition(1).x, lineRenderer[x].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[x].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[x].SetPosition(1, new Vector2(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y) + Directions[x] * 10f);
+                    lineRendererDark[x].SetPosition(1, new Vector3(lineRendererDark[x].GetPosition(1).x, lineRendererDark[x].GetPosition(1).y, 120.01f));
                 }
                 x++;
             }
             //Alle einmal anzeigen
             for(int i = 0; i < 10; i++){
                 lineRenderer[i].enabled = true;
+                lineRendererDark[i].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[i], lineRendererDark[i]));
             }
 
             //Wait one frame
@@ -436,6 +520,8 @@ public class Shoot : MonoBehaviour
             //Alle wieder ausblenden
             for(int i = 0; i < 10; i++){
                 lineRenderer[i].enabled = false;
+                lineRendererDark[i].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
             }
             Inv.slot1_mag_ammo--;
             yield return new WaitForSeconds(1f); 
@@ -449,7 +535,7 @@ public class Shoot : MonoBehaviour
             //Reload
             while(Inv.Shotgun_Selected && Inv.slot1_mag_ammo < 5 && Inv.shotgun_ammo > 0 && Inv.Slot1_Selected){
                 yield return new WaitForSeconds(1.2f);
-                Inv.small_ammo--;
+                Inv.shotgun_ammo--;
                 Inv.slot1_mag_ammo++;
             }
             animator.SetBool("inreloadShotgun", false);
@@ -461,6 +547,8 @@ public class Shoot : MonoBehaviour
         if(Inv.Slot2_Item == "" || Inv.Slot2_Item == null && !ishitting && !isshooting) StartCoroutine(Hit());
          //Glock-18
         if(Inv.Glock_18_Selected == true && isshooting == false && Inv.slot2_mag_ammo > 0){
+            ShootingAudio.clip = Glock_18_Shot;
+            ShootingAudio.Play();
             isshooting = true;
             //Raycast schuss
             RaycastHit2D hitinfo = Physics2D.Raycast(Feuerpunkt.transform.position, Feuerpunkt.transform.up, 50f, layerMask); //Glock schießt 50f weit
@@ -476,15 +564,26 @@ public class Shoot : MonoBehaviour
                 HitAnimation(hitinfo);
                 lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                 lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
             }else{
                 lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                 lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                 lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
             }
             lineRenderer[1].enabled = true;
+            lineRendererDark[1].enabled = true;
+            // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
             //Wait one frame
             yield return new WaitForSeconds(0.05f);
             lineRenderer[1].enabled = false;
+            lineRendererDark[1].enabled = false;
+            // ResetTracers(lineRenderer[1], lineRendererDark[1]);
             Inv.slot2_mag_ammo--;
             yield return new WaitForSeconds(1f); 
             isshooting = false;
@@ -531,15 +630,26 @@ public class Shoot : MonoBehaviour
                     HitAnimation(hitinfo);
                     lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
                 }else{
                     lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                     lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                    lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
                 }
                 lineRenderer[1].enabled = true;
+                lineRendererDark[1].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
                 //Wait one frame
                 yield return new WaitForSeconds(0.05f);
                 lineRenderer[1].enabled = false;
+                lineRendererDark[1].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
                 yield return new WaitForSecondsRealtime(0.3f);
             }
             ende:
@@ -587,15 +697,26 @@ public class Shoot : MonoBehaviour
                     HitAnimation(hitinfo);
                     lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
                 }else{
                     lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                     lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                    lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
                 }
                 lineRenderer[1].enabled = true;
+                lineRendererDark[1].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
                 //Wait one frame
                 yield return new WaitForSeconds(0.05f);
                 lineRenderer[1].enabled = false;
+                lineRendererDark[1].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
                 yield return new WaitForSecondsRealtime(0.3f);
             }
             ende:
@@ -626,6 +747,8 @@ public class Shoot : MonoBehaviour
         //Sniper
         if(Inv.Sniper_Selected == true && isshooting == false && Inv.slot2_mag_ammo > 0){
             isshooting = true;
+            ShootingAudio.clip = Sniper_Shot;
+            ShootingAudio.Play();
             //Raycast schuss
             RaycastHit2D hitinfo = Physics2D.Raycast(Feuerpunkt.transform.position, Feuerpunkt.transform.up, 150f); //Glock schießt 50f weit
             if(hitinfo){
@@ -641,14 +764,26 @@ public class Shoot : MonoBehaviour
                 HitAnimation(hitinfo);
                 lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                 lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
             }else{
                 lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                 lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 150f);
+                lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));                
             }
             lineRenderer[1].enabled = true;
+            lineRendererDark[1].enabled = true;
+            // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
             //Wait one frame
             yield return new WaitForSeconds(0.2f);
             lineRenderer[1].enabled = false;
+            lineRendererDark[1].enabled = false;
+            // ResetTracers(lineRenderer[1], lineRendererDark[1]);
             Inv.slot2_mag_ammo--;
             yield return new WaitForSeconds(4f); 
             isshooting = false;
@@ -695,15 +830,26 @@ public class Shoot : MonoBehaviour
                     HitAnimation(hitinfo);
                     lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
                 }else{
                     lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                     lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                    lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
                 }
                 lineRenderer[1].enabled = true;
+                lineRendererDark[1].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
                 //Wait one frame
                 yield return new WaitForSeconds(0.05f);
                 lineRenderer[1].enabled = false;
+                lineRendererDark[1].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
                 yield return new WaitForSecondsRealtime(0.09f);
             }
             ende:
@@ -733,6 +879,8 @@ public class Shoot : MonoBehaviour
         //Shotgun
         if(Inv.Shotgun_Selected == true && isshooting == false && Inv.slot2_mag_ammo > 0){
             isshooting = true;
+            ShootingAudio.clip = Shotgun_Shot;
+            ShootingAudio.Play();
             //new
             //Raycast schüsse (5 Stück)
             RaycastHit2D[] Shotgunhits = new RaycastHit2D[10];
@@ -759,11 +907,11 @@ public class Shoot : MonoBehaviour
             foreach(RaycastHit2D hitinfoshotgun in Shotgunhits){
                 if(hitinfoshotgun){
                     if(hitinfoshotgun.collider.gameObject.tag == "Bot"){
-                        if(hitinfoshotgun.collider.GetComponent<Bot_Health>().health <= 5){
+                        if(hitinfoshotgun.collider.GetComponent<Bot_Health>().health <= 9){
                             gameObject.GetComponent<Inventory_Handler>().Kills++;
-                            Killfeed(Menu_Handler.loadeddata.Saved_Player_Name, hitinfoshotgun.collider.GetComponent<TextMeshPro>().text, 1); //Player name + Bot name + Weapon ID
+                            Killfeed(Menu_Handler.loadeddata.Saved_Player_Name, hitinfoshotgun.collider.GetComponentInChildren<TextMeshPro>().text, 8); //Player name + Bot name + Weapon ID
                         } 
-                        hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(5, "Player", 1);
+                        hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(9, "Player", 8);
                         Damage_dealt += 5;
                     }
                     HitAnimation(hitinfoshotgun);
@@ -775,16 +923,25 @@ public class Shoot : MonoBehaviour
                 if(hitinfoshotgun){
                     lineRenderer[x].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[x].SetPosition(1, new Vector3(hitinfoshotgun.point.x, hitinfoshotgun.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[x].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[x].SetPosition(1, new Vector3(hitinfoshotgun.point.x, hitinfoshotgun.point.y, 120.01f));
                 }else{
                     lineRenderer[x].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[x].SetPosition(1, new Vector2(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y) + Directions[x] * 10f);
                     lineRenderer[x].SetPosition(1, new Vector3(lineRenderer[x].GetPosition(1).x, lineRenderer[x].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[x].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[x].SetPosition(1, new Vector2(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y) + Directions[x] * 10f);
+                    lineRendererDark[x].SetPosition(1, new Vector3(lineRendererDark[x].GetPosition(1).x, lineRendererDark[x].GetPosition(1).y, 120.01f));
                 }
                 x++;
             }
             //Alle einmal anzeigen
             for(int i = 0; i < 10; i++){
                 lineRenderer[i].enabled = true;
+                lineRendererDark[i].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[i], lineRendererDark[i]));
             }
 
             //Wait one frame
@@ -793,6 +950,8 @@ public class Shoot : MonoBehaviour
             //Alle wieder ausblenden
             for(int i = 0; i < 10; i++){
                 lineRenderer[i].enabled = false;
+                lineRendererDark[i].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
             }
             Inv.slot2_mag_ammo--;
             yield return new WaitForSeconds(1f); 
@@ -806,7 +965,7 @@ public class Shoot : MonoBehaviour
             //Reload
             while(Inv.Shotgun_Selected && Inv.slot2_mag_ammo < 5 && Inv.shotgun_ammo > 0 && Inv.Slot2_Selected){
                 yield return new WaitForSeconds(1.2f);
-                Inv.small_ammo--;
+                Inv.shotgun_ammo--;
                 Inv.slot2_mag_ammo++;
             }
             animator.SetBool("inreloadShotgun", false);
@@ -819,6 +978,8 @@ public class Shoot : MonoBehaviour
         if(Inv.Slot3_Item == "" || Inv.Slot3_Item == null && !ishitting && !isshooting) StartCoroutine(Hit());
          //Glock-18
         if(Inv.Glock_18_Selected == true && isshooting == false && Inv.slot3_mag_ammo > 0){
+            ShootingAudio.clip = Glock_18_Shot;
+            ShootingAudio.Play();
             isshooting = true;
             //Raycast schuss
             RaycastHit2D hitinfo = Physics2D.Raycast(Feuerpunkt.transform.position, Feuerpunkt.transform.up, 50f, layerMask); //Glock schießt 50f weit
@@ -834,15 +995,26 @@ public class Shoot : MonoBehaviour
                 HitAnimation(hitinfo);
                 lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                 lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
             }else{
                 lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                 lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                 lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
             }
             lineRenderer[1].enabled = true;
+            lineRendererDark[1].enabled = true;
+            // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
             //Wait one frame
             yield return new WaitForSeconds(0.05f);
             lineRenderer[1].enabled = false;
+            lineRendererDark[1].enabled = false;
+            // ResetTracers(lineRenderer[1], lineRendererDark[1]);
             Inv.slot3_mag_ammo--;
             yield return new WaitForSeconds(1f); 
             isshooting = false;
@@ -889,15 +1061,26 @@ public class Shoot : MonoBehaviour
                     HitAnimation(hitinfo);
                     lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
                 }else{
                     lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                     lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                    lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
                 }
                 lineRenderer[1].enabled = true;
+                lineRendererDark[1].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
                 //Wait one frame
                 yield return new WaitForSeconds(0.05f);
                 lineRenderer[1].enabled = false;
+                lineRendererDark[1].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
                 yield return new WaitForSecondsRealtime(0.3f);
             }
             ende:
@@ -945,15 +1128,26 @@ public class Shoot : MonoBehaviour
                     HitAnimation(hitinfo);
                     lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
                 }else{
                     lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                     lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                    lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
                 }
                 lineRenderer[1].enabled = true;
+                lineRendererDark[1].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
                 //Wait one frame
                 yield return new WaitForSeconds(0.05f);
                 lineRenderer[1].enabled = false;
+                lineRendererDark[1].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
                 yield return new WaitForSecondsRealtime(0.3f);
             }
             ende:
@@ -984,6 +1178,8 @@ public class Shoot : MonoBehaviour
         //Sniper
         if(Inv.Sniper_Selected == true && isshooting == false && Inv.slot3_mag_ammo > 0){
             isshooting = true;
+            ShootingAudio.clip = Sniper_Shot;
+            ShootingAudio.Play();
             //Raycast schuss
             RaycastHit2D hitinfo = Physics2D.Raycast(Feuerpunkt.transform.position, Feuerpunkt.transform.up, 150f); //Glock schießt 50f weit
             if(hitinfo){
@@ -999,14 +1195,26 @@ public class Shoot : MonoBehaviour
                 HitAnimation(hitinfo);
                 lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                 lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
             }else{
                 lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                 lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 150f);
+                lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                //Dark Line
+                lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
             }
             lineRenderer[1].enabled = true;
+            lineRendererDark[1].enabled = true;
+            // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
             //Wait one frame
             yield return new WaitForSeconds(0.2f);
             lineRenderer[1].enabled = false;
+            lineRendererDark[1].enabled = false;
+            // ResetTracers(lineRenderer[1], lineRendererDark[1]);
             Inv.slot3_mag_ammo--;
             yield return new WaitForSeconds(4f); 
             isshooting = false;
@@ -1053,15 +1261,26 @@ public class Shoot : MonoBehaviour
                     HitAnimation(hitinfo);
                     lineRenderer[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[1].SetPosition(1, new Vector3(hitinfo.point.x, hitinfo.point.y, 120.01f));
                 }else{
                     lineRenderer[1].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
                     lineRenderer[1].SetPosition(1, new Vector3(lineRenderer[1].GetPosition(1).x, lineRenderer[1].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[1].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[1].SetPosition(1, Feuerpunkt.transform.position + Feuerpunkt.transform.up * 50f);
+                    lineRendererDark[1].SetPosition(1, new Vector3(lineRendererDark[1].GetPosition(1).x, lineRendererDark[1].GetPosition(1).y, 120.01f));
                 }
                 lineRenderer[1].enabled = true;
+                lineRendererDark[1].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[1], lineRendererDark[1]));
                 //Wait one frame
                 yield return new WaitForSeconds(0.05f);
                 lineRenderer[1].enabled = false;
+                lineRendererDark[1].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
                 yield return new WaitForSecondsRealtime(0.09f);
             }
             ende:
@@ -1091,6 +1310,8 @@ public class Shoot : MonoBehaviour
         //Shotgun
         if(Inv.Shotgun_Selected == true && isshooting == false && Inv.slot3_mag_ammo > 0){
             isshooting = true;
+            ShootingAudio.clip = Shotgun_Shot;
+            ShootingAudio.Play();
             //new
             //Raycast schüsse (5 Stück)
             RaycastHit2D[] Shotgunhits = new RaycastHit2D[10];
@@ -1117,11 +1338,11 @@ public class Shoot : MonoBehaviour
             foreach(RaycastHit2D hitinfoshotgun in Shotgunhits){
                 if(hitinfoshotgun){
                     if(hitinfoshotgun.collider.gameObject.tag == "Bot"){
-                        if(hitinfoshotgun.collider.GetComponent<Bot_Health>().health <= 5){
+                        if(hitinfoshotgun.collider.GetComponent<Bot_Health>().health <= 9){
                             gameObject.GetComponent<Inventory_Handler>().Kills++;
-                            Killfeed(Menu_Handler.loadeddata.Saved_Player_Name, hitinfoshotgun.collider.GetComponent<TextMeshPro>().text, 1); //Player name + Bot name + Weapon ID
+                            Killfeed(Menu_Handler.loadeddata.Saved_Player_Name, hitinfoshotgun.collider.GetComponentInChildren<TextMeshPro>().text, 8); //Player name + Bot name + Weapon ID
                         } 
-                        hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(5, "Player", 1);
+                        hitinfoshotgun.collider.GetComponent<Bot_Health>().Damage(9, "Player", 8);
                         Damage_dealt += 5;
                     }
                     HitAnimation(hitinfoshotgun);
@@ -1133,16 +1354,25 @@ public class Shoot : MonoBehaviour
                 if(hitinfoshotgun){
                     lineRenderer[x].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120f));
                     lineRenderer[x].SetPosition(1, new Vector3(hitinfoshotgun.point.x, hitinfoshotgun.point.y, 120f));
+                    //Dark Line
+                    lineRendererDark[x].SetPosition(0, new Vector3(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y, 120.01f));
+                    lineRendererDark[x].SetPosition(1, new Vector3(hitinfoshotgun.point.x, hitinfoshotgun.point.y, 120.01f));
                 }else{
                     lineRenderer[x].SetPosition(0, Feuerpunkt.transform.position);
                     lineRenderer[x].SetPosition(1, new Vector2(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y) + Directions[x] * 10f);
                     lineRenderer[x].SetPosition(1, new Vector3(lineRenderer[x].GetPosition(1).x, lineRenderer[x].GetPosition(1).y, 120f));
+                    //Dark Line
+                    lineRendererDark[x].SetPosition(0, Feuerpunkt.transform.position);
+                    lineRendererDark[x].SetPosition(1, new Vector2(Feuerpunkt.transform.position.x, Feuerpunkt.transform.position.y) + Directions[x] * 10f);
+                    lineRendererDark[x].SetPosition(1, new Vector3(lineRendererDark[x].GetPosition(1).x, lineRendererDark[x].GetPosition(1).y, 120.01f));
                 }
                 x++;
             }
             //Alle einmal anzeigen
             for(int i = 0; i < 10; i++){
                 lineRenderer[i].enabled = true;
+                lineRendererDark[i].enabled = true;
+                // StartCoroutine(FadeOutTracers(lineRenderer[i], lineRendererDark[i]));
             }
 
             //Wait one frame
@@ -1151,6 +1381,8 @@ public class Shoot : MonoBehaviour
             //Alle wieder ausblenden
             for(int i = 0; i < 10; i++){
                 lineRenderer[i].enabled = false;
+                lineRendererDark[i].enabled = false;
+                // ResetTracers(lineRenderer[1], lineRendererDark[1]);
             }
             Inv.slot3_mag_ammo--;
             yield return new WaitForSeconds(1f); 
@@ -1164,7 +1396,7 @@ public class Shoot : MonoBehaviour
             //Reload
             while(Inv.Shotgun_Selected && Inv.slot3_mag_ammo < 5 && Inv.shotgun_ammo > 0 && Inv.Slot3_Selected){
                 yield return new WaitForSeconds(1.2f);
-                Inv.small_ammo--;
+                Inv.shotgun_ammo--;
                 Inv.slot3_mag_ammo++;
             }
             animator.SetBool("inreloadShotgun", false);
@@ -1189,6 +1421,22 @@ public class Shoot : MonoBehaviour
         }
     }
         
+    private IEnumerator FadeOutTracers(LineRenderer lineRenderer, LineRenderer lineRendererDark){
+        //Fade out both lines over 10 Frames
+        for(int i = 0; i != 10; i++){
+            lineRenderer.startColor = new Color(lineRenderer.startColor.r, lineRenderer.startColor.g, lineRenderer.startColor.b, lineRenderer.startColor.a - 0.1f);
+            lineRenderer.endColor = new Color(lineRenderer.endColor.r, lineRenderer.endColor.g, lineRenderer.endColor.b, lineRenderer.endColor.a - 0.1f);
+            lineRendererDark.startColor = new Color(lineRendererDark.startColor.r, lineRendererDark.startColor.g, lineRendererDark.startColor.b, lineRendererDark.startColor.a - 0.1f);
+            lineRendererDark.endColor = new Color(lineRendererDark.endColor.r, lineRendererDark.endColor.g, lineRendererDark.endColor.b, lineRendererDark.endColor.a - 0.1f);
+            yield return new WaitForEndOfFrame();
+        }
+    }
+    
+    private void ResetTracers(LineRenderer lineRenderer, LineRenderer lineRendererDark){
+        //Setze beide wieder auf Alpha 1
+        lineRenderer.startColor = new Color(lineRenderer.startColor.r, lineRenderer.startColor.g, lineRenderer.startColor.b, 1f);
+        lineRenderer.endColor = new Color(lineRenderer.endColor.r, lineRenderer.endColor.g, lineRenderer.endColor.b, 1f);
+    }
     //Shootbutton variablen
     public void shootbutton(){
         shootbttn = true;
@@ -1264,6 +1512,8 @@ public class Shoot : MonoBehaviour
             GrundImage.sprite = Killfeed_Zone;
         }else if(Grund == 7){
             GrundImage.sprite = Killfeed_Faust;
+        }else if(Grund == 8){
+            GrundImage.sprite = Killfeed_Shotgun;
         }
 
         //Rein fliegen lassen (Animation)
