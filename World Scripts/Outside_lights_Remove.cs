@@ -8,6 +8,7 @@ public class Outside_lights_Remove : MonoBehaviour
     public Sprite OriginalRoof;
     public Transform OriginalTransform;
     public GameObject Light1,Light2,Light3,Light4,Light5,Light6,Light7,Light8,Light9,Light10,Smoke1,Smoke2;
+    public GameObject Sprite1,Sprite2;
 
     private void Awake() {
         OriginalTransform = Roofobject.transform;
@@ -51,6 +52,12 @@ public class Outside_lights_Remove : MonoBehaviour
         if(Smoke2 != null){
             Smoke2.SetActive(true);
         }
+        if(Sprite1 != null){
+            Sprite1.SetActive(true);
+        }
+        if(Sprite2 != null){
+            Sprite2.SetActive(true);
+        }
     }
     
     private void OnTriggerStay2D(Collider2D collision) {
@@ -91,6 +98,12 @@ public class Outside_lights_Remove : MonoBehaviour
             }
             if(Smoke2 != null){
                 Smoke2.SetActive(false);
+            }
+            if(Sprite1 != null){
+                Sprite1.SetActive(false);
+            }
+            if(Sprite2 != null){
+                Sprite2.SetActive(false);
             }
             
         }
@@ -134,6 +147,12 @@ public class Outside_lights_Remove : MonoBehaviour
             }
             if(Smoke2 != null){
                 Smoke2.SetActive(true);
+            }
+            if(Sprite1 != null){
+                Sprite1.SetActive(true);
+            }
+            if(Sprite2 != null){
+                Sprite2.SetActive(true);
             }
         }
     }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.Rendering.Universal;
 
 public class Map_Manager : MonoBehaviour
 {
@@ -12,7 +13,7 @@ public class Map_Manager : MonoBehaviour
     private int y = 1;
     public GameObject[] EntryPoints;
     public float Timespeed;
-    public GameObject GlobalLight;
+    public Light2D GlobalLight;
     public GameObject[] Laternen;
     public GameObject[] Waffen_Spawns;
     private GameObject[] Ammo_Spawns;
@@ -24,8 +25,13 @@ public class Map_Manager : MonoBehaviour
     [SerializeField] private GameObject Mid_Ammo;
     [SerializeField] private GameObject Big_Ammo;
     [SerializeField] private GameObject Mp7;
+    [SerializeField] private GameObject Shotgun;
     private float minus;
-    public GameObject Player;
+    public GameObject Player;   
+    public static bool MateIsAlive; 
+    public Light2D SichtLicht;
+    public bool Day;
+    public SoundEffect_Manager SFX_Manager;
 
     void Awake(){
         //Zeig schonmal die eingestellen Bots an damit das script im hintergrund schonmal zählen kann
@@ -41,18 +47,13 @@ public class Map_Manager : MonoBehaviour
         Waffen_Spawns = GameObject.FindGameObjectsWithTag("Waffen_Spawn"); //für SpawnItems()
         SpawnItems();
         StartCoroutine(Counting());
+        if(Menu_Handler.DuoMode){
+            MateIsAlive = true;
+        }
     }
     void Start()
     {
         StartCoroutine(PlayerCheck());
-
-        EntryPoints = GameObject.FindGameObjectsWithTag("Entry");
-        foreach(GameObject i in EntryPoints){
-            i.GetComponent<Entry>().id = y;
-            y++;
-        }
-        //reset "y" für Update()
-        y = 0;
     }
 
     private IEnumerator Counting(){
@@ -62,34 +63,57 @@ public class Map_Manager : MonoBehaviour
         }
     }
 
-    private IEnumerator WorldTime(){
-        while(true){
-            //Es wird Nacht
-            while(GlobalLight.GetComponent<UnityEngine.Rendering.Universal.Light2D>().intensity > .15f){
-                GlobalLight.GetComponent<UnityEngine.Rendering.Universal.Light2D>().intensity -= .0075f * Time.deltaTime;
-                //Mach Lichter AN wenn Abend (.5f) erreicht wird
-                if(GlobalLight.GetComponent<UnityEngine.Rendering.Universal.Light2D>().intensity < .5f) TurnOnLights();
+    private bool lightsOn = false;
+
+    private IEnumerator WorldTime() {
+        while (true) {
+            // Es wird Nacht
+            while (GlobalLight.intensity > .25f) {
+                GlobalLight.intensity -= .0075f * Time.deltaTime;
+
+                // Sichtlicht-Intensität logarithmisch anpassen und gegen Ende beschleunigen
+                float t = (0.9f - GlobalLight.intensity) / (0.9f - 0.25f);
+                SichtLicht.intensity = Mathf.Lerp(0f, 0.6f, 1 - Mathf.Log10(1 + 9 * (1 - t)));  // Umgekehrte logarithmische Skalierung
+
+                // Mach Lichter AN, wenn Abend (.5f) erreicht wird und Lichter noch nicht an sind
+                if (GlobalLight.intensity < .5f && !lightsOn) {
+                    StartCoroutine(SFX_Manager.SwitchToNightAmbience());
+                    TurnOnLights();
+                    lightsOn = true;
+                }
                 yield return new WaitForSeconds(Timespeed);
             }
-            //Es wird Tag
-            while(GlobalLight.GetComponent<UnityEngine.Rendering.Universal.Light2D>().intensity < .9f){
-                GlobalLight.GetComponent<UnityEngine.Rendering.Universal.Light2D>().intensity += .015f * Time.deltaTime;
-                //Mach Lichter AUS wenn Abend (.5f) erreicht wird
-                if(GlobalLight.GetComponent<UnityEngine.Rendering.Universal.Light2D>().intensity > .5f) TurnOffLights();
+
+            // Es wird Tag
+            while (GlobalLight.intensity < .9f) {
+                GlobalLight.intensity += .015f * Time.deltaTime;
+
+                // Sichtlicht-Intensität logarithmisch anpassen und gegen Ende beschleunigen
+                float t = (GlobalLight.intensity - 0.25f) / (0.9f - 0.25f);
+                SichtLicht.intensity = Mathf.Lerp(0.6f, 0f, 1 - Mathf.Log10(1 + 9 * (1 - t)));  // Umgekehrte logarithmische Skalierung
+
+                // Mach Lichter AUS, wenn Morgen (.5f) erreicht wird und Lichter noch an sind
+                if (GlobalLight.intensity > .5f && lightsOn) {
+                    StartCoroutine(SFX_Manager.SwitchToDayAmbience());
+                    TurnOffLights();
+                    lightsOn = false;
+                }
                 yield return new WaitForSeconds(Timespeed);
             }
         }
     }
 
     private void TurnOnLights(){
+        Day = false;
         foreach(GameObject i in Laternen){
-            i.GetComponentInChildren<UnityEngine.Rendering.Universal.Light2D>().enabled = true;
+            i.GetComponentInChildren<Light2D>().enabled = true;
         }
     }
 
     private void TurnOffLights(){
+        Day = true;
         foreach(GameObject i in Laternen){
-            i.GetComponentInChildren<UnityEngine.Rendering.Universal.Light2D>().enabled = false;
+            i.GetComponentInChildren<Light2D>().enabled = false;
         }
     }
 
@@ -105,10 +129,18 @@ public class Map_Manager : MonoBehaviour
             GameObject.Find("PlayerCount").GetComponent<TextMeshProUGUI>().text = Playercount.ToString();
         }catch{}
 
-        if(Playercount == 1 && won == false){ //Wenn nur noch ein spieler lebt nur einmal ausführen weil loop leuft weiter und würde dann immer wieder ausführen
-            won = true;
-            Win();
-            break;
+        if(!Menu_Handler.DuoMode && Menu_Handler.loadeddata.TurnOffBots == false){ //Solo
+                if(Playercount == 1 && won == false){ //Wenn nur noch ein spieler lebt nur einmal ausführen weil loop leuft weiter und würde dann immer wieder ausführen
+                won = true;
+                Win();
+                break;
+            }
+        }else if(Menu_Handler.DuoMode && Menu_Handler.loadeddata.TurnOffBots == false){ //Duo
+            if(Playercount == 2 && won == false){ //Wenn nur noch ein spieler lebt nur einmal ausführen weil loop leuft weiter und würde dann immer wieder ausführen
+                won = true;
+                Win();
+                break;
+            }
         }
         if(Playercount <= 5){ //Wenn nur noch 5 Spieler leben check alle .5sec nach playercount
             minus = -1.5f;
@@ -121,13 +153,21 @@ public class Map_Manager : MonoBehaviour
         StartCoroutine(Player.GetComponent<UI_Handler>().EndScreen(true));
     }
 
+    public static void DeactivateAllBots(){
+        GameObject[] bots = GameObject.FindGameObjectsWithTag("Bot");
+        foreach(GameObject i in bots){
+            if(i.GetComponent<Bot_Behavior>() != null) i.GetComponent<Bot_Behavior>().enabled = false;
+            else if(i.GetComponent<Mate_Behavior>()) i.GetComponent<Mate_Behavior>().enabled = false;
+        }
+    }
+
     private void SpawnItems(){
         //Waffen
         foreach(GameObject i in Waffen_Spawns){
             int rand = Random.Range(1,3); //(Kann nur zwischen 1 und 2 treffen) Rechne die chance ob überhaupt auf diesem spot irgendwas spawnen soll (50/50)
             if(rand == 1){
                 //Rechne die chancen für die Spawnende Waffe aus
-                rand = Random.Range(-1,120);//0-100
+                rand = Random.Range(-1,150);//0-100
 
                 if(rand < 41 && rand > -1){//0-40 (40%)
                 //Glock
@@ -161,6 +201,12 @@ public class Map_Manager : MonoBehaviour
                     item.GetComponent<Weapon_Info>().Currentammo = 20;
                     item = Instantiate(Small_Ammo, new Vector3(i.transform.position.x + 0.3f, i.transform.position.y - 0.3f, 120f), Quaternion.identity);
                     item.GetComponent<Ammo_Info>().Ammo = 20;
+                }else if(rand <= 150 && rand > 122){ //%?
+                //Shotgun
+                    GameObject item = Instantiate(Mp7, new Vector3(i.transform.position.x, i.transform.position.y, 120f), Quaternion.identity);
+                    item.GetComponent<Weapon_Info>().Currentammo = 5;
+                    item = Instantiate(Small_Ammo, new Vector3(i.transform.position.x + 0.3f, i.transform.position.y - 0.3f, 120f), Quaternion.identity);
+                    item.GetComponent<Ammo_Info>().Ammo = 5;
                 }
             }
         }

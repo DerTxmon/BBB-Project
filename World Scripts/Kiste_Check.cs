@@ -17,6 +17,8 @@ public class Kiste_Check : MonoBehaviour
                 collision.gameObject.GetComponent<Movement>().lootable = true;
             }catch{
                 collision.gameObject.GetComponent<Bot_Behavior>().lootable = true;
+            }finally{
+                if(collision.gameObject.GetComponent<Mate_Behavior>() != null) collision.gameObject.GetComponent<Mate_Behavior>().lootable = true;
             }
             Contact = true;
             try{
@@ -24,11 +26,15 @@ public class Kiste_Check : MonoBehaviour
                     //Zu Checken: isopen, Collision, lootbutton.
                     if(transform.GetComponentInParent<Kiste>().isopen == false){
                         //Öffne die kiste (führe die öffnungs funktion im Kisten Script selber aus)
-                        StartCoroutine(gameObject.GetComponentInParent<Kiste>().Open());
+                        gameObject.GetComponentInParent<Kiste>().Open();
                     }
                 }
             }catch{
                 if(collision.gameObject.GetComponent<Bot_Behavior>().lootbutton == true) open = true;
+            }finally{
+                if(collision.gameObject.GetComponent<Mate_Behavior>() != null) {
+                    if(collision.gameObject.GetComponent<Mate_Behavior>().lootbutton == true) open = true;
+                }
             }
         }else Contact = false;
         if(collision.gameObject.tag == "Player" && this.gameObject.GetComponentInParent<Kiste>().isopen == false){ //und kiste noch nicht geöffnet
